@@ -21,6 +21,7 @@ Current implementations:
 - **Frontend-to-backend proxy**: Next rewrites `/api/backend/:path*` to the server-only `BACKEND_API_URL` plus `/api/:path*`. Example: browser `GET /api/backend/v1/simulator/instance` → FastAPI `GET /api/v1/simulator/instance`. This avoids browser calls to `localhost` and avoids requiring browser CORS for normal UI requests.
 - **Backend (`backend/`)**: FastAPI with a reusable async HTTPX client configured by `SIMULATOR_BASE_URL` and `SIMULATOR_TIMEOUT_SECONDS`. It validates known simulator data with Pydantic models, maps upstream errors, forwards the stale-data header, and proxies documented SSE events.
 - **Simulator**: supplied organizer image; expected local port is 8000. It is not part of this repository and must not be modified to solve the challenge.
+- **Container/deployment layer**: root `docker-compose.yml` runs all three services and can target only `backend` (bringing up the simulator dependency) for a VPS + Vercel split. The two app Dockerfiles are under `backend/` and `frontend/`; `deploy/README.md` documents both modes. The Dockerfiles/Compose were authored and statically checked, but not built with Docker because no Docker daemon was available in the authoring environment.
 
 ## Intended end-to-end data path
 
@@ -80,6 +81,8 @@ The recommendation engine should be a pure/testable layer that receives a consis
 | Next.js   |         3000 | `BACKEND_API_URL` defaults to `http://127.0.0.1:8001`; value is server-only                         |
 
 When running in containers, set `BACKEND_API_URL` to the backend service name, e.g. `http://backend:8001`, and `SIMULATOR_BASE_URL` to the simulator service name, e.g. `http://simulator:8000`. Do not ship a browser-visible environment variable containing a sandbox-only `localhost` address.
+
+For the all-in-one stack, `docker compose up --build -d` builds both apps and starts the simulator. For split deployment, run `docker compose up -d --build backend` on the VPS (Compose also starts the simulator); set Vercel's build-time `BACKEND_API_URL` to the VPS HTTPS API origin. The Next rewrite is emitted at build time, so redeploy after changing it. Keep simulator/admin and backend host ports private; expose FastAPI through a TLS reverse proxy. Validate the SSE stream through the chosen Vercel/runtime platform because serverless response-duration limits may affect long-lived connections.
 
 ## Reliability boundaries
 

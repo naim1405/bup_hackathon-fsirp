@@ -12,7 +12,16 @@ All displayed quantities and metrics must be labeled as simulator data.
 
 ## Local test setup
 
-Use three services on non-conflicting ports:
+Use the root Docker Compose stack as the reproducible default:
+
+```bash
+docker compose up --build -d
+docker compose ps
+```
+
+This starts the organizer simulator image, FastAPI, and Next.js. The simulator defaults to paused. The exact images/Dockerfiles still need validation on a host with Docker installed. For a manual non-container run, use the per-service commands in the READMEs.
+
+The services use these non-conflicting ports:
 
 - Simulator: organizer image on port `8000`, paused for deterministic replay.
 - FastAPI: port `8001`, `SIMULATOR_BASE_URL=http://localhost:8000`.

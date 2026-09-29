@@ -4,13 +4,14 @@
 
 ## Current repository state
 
-The `main` branch has three implementation commits:
+The `main` branch has these implementation milestones:
 
 | Commit                                                    | Work delivered                                                                                                                                                                               |
 | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `58ca98b` — Initialize FastAPI backend scaffold           | Base FastAPI app, root info, backend health endpoints, CORS defaults, requirements, run instructions, and starter tests.                                                                     |
 | `3fc3df4` — Add validated read-only simulator integration | Async simulator HTTP client, Pydantic response models, public simulator REST read routes, SSE proxy/event validation, upstream error mapping, stale header forwarding, and mock-based tests. |
 | `efe9cf1` — Configure Next.js frontend with shadcn UI     | Next.js App Router/TypeScript/Tailwind v4 scaffold, shadcn/ui Nova/Radix setup and components, providers, same-origin FastAPI rewrite, starter page, and frontend tooling.                   |
+| `7af9252` — Dockerize frontend and backend services       | Multi-stage frontend/backend Dockerfiles, root Compose stack including the simulator, health checks, and guides for all-in-one or VPS + Vercel deployment.                                   |
 
 ### Implemented today
 
@@ -33,6 +34,15 @@ The `main` branch has three implementation commits:
 - Starter page accurately says live data is not connected yet. No inventory, recommendation, or operator-action UI has been implemented.
 - Verified: `npm run lint`, `npm run typecheck`, `npm run format:check`, `npm run build`; frontend and backend health proxy smoke tests return HTTP 200.
 
+#### Containers / deployment
+
+- `backend/Dockerfile`: Python 3.12 slim, non-root FastAPI image, liveness health check.
+- `frontend/Dockerfile`: multi-stage Node 20 Alpine image with Next standalone output, non-root runtime, HTTP health check.
+- Root `docker-compose.yml`: simulator, backend, and frontend with health-gated dependencies. Default bind addresses keep simulator/admin and backend ports on loopback.
+- `deploy/README.md`: one-command full stack and split VPS backend + Vercel frontend instructions; `deploy/Caddyfile.example` and Compose env sample included.
+- Verified: Compose YAML parses; Next standalone build and proxy smoke test succeeded; regular Vercel-mode `npm run build` succeeded.
+- Not verified: actual Docker image/Compose build against a Docker daemon. Docker CLI/daemon was unavailable in the authoring environment; run the documented Docker-host verification before relying on it at judging.
+
 ### Not implemented yet
 
 - Live run against the organizer's simulator image. Current proxy behavior is tested with mocks; the simulator must be started locally at port 8000 for real state calls.
@@ -41,7 +51,7 @@ The `main` branch has three implementation commits:
 - Frontend REST/SSE data hooks, dashboard, alerts, and recommendation review UI.
 - Operator approval, allocation submission (`POST /v1/allocations`), or cancellation workflow.
 - Application database, recommendation audit history, or policy versioning.
-- Docker Compose for the complete project, CI, metrics dashboards, load-test results, or final demo evidence.
+- Docker-host validation of the Dockerfiles/Compose stack, CI, metrics dashboards, load-test results, or final demo evidence.
 
 ## Recommended work order and ownership
 
@@ -89,7 +99,7 @@ Owners are roles; assign actual names in the team. Keep deployment/observability
 2. Instrument backend request count/latency/error, simulator reachability, stale-data detection, stream reconnects, recommendation latency/confidence, and allocation/fallback outcomes.
 3. Expose component health and a simple metrics/log view. Add fault-injection runbook.
 4. Load-test one meaningful application path and record workload, concurrency, p50/p95/p99 where available, error rate, and resource use.
-5. Add project-level Docker Compose and CI/test commands; keep image/service configuration reproducible.
+5. Validate `docker compose up --build` on a Docker host, then add CI for backend tests, frontend checks, and container builds.
 
 **Done when:** team can demonstrate a named failure, visible detection, safe fallback/degradation, recovery, and measured performance.
 

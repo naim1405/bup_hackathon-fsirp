@@ -8,6 +8,7 @@ These documents are the shared working context for teammates and coding agents. 
 4. [Work plan and implementation status](work-plan-and-status.md) — what is already in the repository versus what remains.
 5. [Demo and validation plan](demo-and-validation-plan.md) — reproducible scenarios, resilience checks, measurements, and demo outline.
 6. [Recommended artifacts](recommended-artifacts.md) — additional contracts, ADRs, runbooks, and evidence worth creating.
+7. [Deployment guide](../deploy/README.md) — full Compose stack and VPS-backend/Vercel-frontend options.
 
 ## Source of truth
 

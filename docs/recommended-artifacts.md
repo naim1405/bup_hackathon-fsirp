@@ -13,13 +13,13 @@ The repository now includes the four requested knowledge artifacts plus an archi
 
 ## Priority 1 — engineering and operator handoff
 
-| Artifact                                        | What it should contain                                                                                                                                                                            | Suggested owner            | Status                                                                                         |
-| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------- |
-| **ADR: recommendation policy choice**           | Why start with deterministic forecast + constrained heuristic/optimizer; alternatives considered (threshold, LP/ILP, ML/RL); evaluation evidence required before switching.                       | Engine owner.              | Recommended, not written separately.                                                           |
-| **ADR: state freshness and SSE policy**         | Which REST resource is refreshed for each SSE event, reconnect/full-refresh behavior, duplicate event handling, UI coalescing, and stale-data action policy.                                      | Backend + frontend owners. | Current guide says REST truth/SSE hint; integration specifics still need implementation tests. |
-| **Operator workflow / decision audit contract** | Recommendation lifecycle: generated → reviewed → approved/rejected/edited → submitted → pending/in-transit/arrived/failed/cancelled; actor, tick, reasons, snapshot version, request idempotency. | Product + backend owners.  | Not implemented; required before allocation actions.                                           |
-| **Runbook**                                     | Install/start/stop all services, env variables, health checks, simulator reset, pause/step, inject/clear event/fault, common errors, recovery steps.                                              | DevOps owner.              | Per-service READMEs exist; combined Compose runbook remains.                                   |
-| **Security / simulation guardrail checklist**   | Secret handling, simulated-only statement, no real infrastructure/actions, server-side proxy boundary, operator approval, safe behavior on stale data.                                            | Whole team / reviewer.     | Guardrails are summarized in problem analysis; operational checklist remains.                  |
+| Artifact                                        | What it should contain                                                                                                                                                                            | Suggested owner            | Status                                                                                                                     |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| **ADR: recommendation policy choice**           | Why start with deterministic forecast + constrained heuristic/optimizer; alternatives considered (threshold, LP/ILP, ML/RL); evaluation evidence required before switching.                       | Engine owner.              | Recommended, not written separately.                                                                                       |
+| **ADR: state freshness and SSE policy**         | Which REST resource is refreshed for each SSE event, reconnect/full-refresh behavior, duplicate event handling, UI coalescing, and stale-data action policy.                                      | Backend + frontend owners. | Current guide says REST truth/SSE hint; integration specifics still need implementation tests.                             |
+| **Operator workflow / decision audit contract** | Recommendation lifecycle: generated → reviewed → approved/rejected/edited → submitted → pending/in-transit/arrived/failed/cancelled; actor, tick, reasons, snapshot version, request idempotency. | Product + backend owners.  | Not implemented; required before allocation actions.                                                                       |
+| **Runbook**                                     | Install/start/stop all services, env variables, health checks, simulator reset, pause/step, inject/clear event/fault, common errors, recovery steps.                                              | DevOps owner.              | `deploy/README.md` now covers Compose and VPS + Vercel; validate it on a Docker host and add operational screenshots/logs. |
+| **Security / simulation guardrail checklist**   | Secret handling, simulated-only statement, no real infrastructure/actions, server-side proxy boundary, operator approval, safe behavior on stale data.                                            | Whole team / reviewer.     | Guardrails are summarized in problem analysis; operational checklist remains.                                              |
 
 ## Priority 2 — judging and operational proof
 
@@ -46,7 +46,7 @@ docs/
   adr/
     0001-start-with-explainable-policy.md
     0002-rest-is-authoritative.md
-  runbook.md                         # once full Compose stack exists
+  runbook.md                         # expand after real Docker-host validation
   evidence/
     replay-baseline.json
     replay-policy.json
