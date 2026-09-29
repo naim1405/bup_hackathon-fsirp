@@ -32,6 +32,10 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
 
 The simulator uses its documented default port `8000`, so the backend listens on `8001`. Set `SIMULATOR_BASE_URL` if the simulator is exposed elsewhere. Backend docs are at <http://localhost:8001/docs>; health is at <http://localhost:8001/api/v1/health>.
 
+## Team documentation
+
+Start at [`docs/README.md`](docs/README.md) for the problem analysis, recommendation-engine design, architecture, work plan/status, demo/validation plan, and additional artifact recommendations.
+
 ## Checks
 
 - Frontend: `cd frontend && npm run lint && npm run typecheck && npm run build`
