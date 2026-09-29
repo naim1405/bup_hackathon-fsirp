@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SystemHealth } from "@/components/system-health";
 import {
   Activity,
   ArrowUpRight,
@@ -84,6 +85,7 @@ export default function Home() {
       </header>
 
       <div className="mx-auto max-w-7xl px-5 py-10 sm:px-8 sm:py-14">
+        <SystemHealth />
         <section className="bg-card relative overflow-hidden rounded-3xl border p-7 shadow-sm sm:p-10 lg:p-12">
           <div className="pointer-events-none absolute -top-28 right-[-4rem] size-80 rounded-full bg-emerald-500/8 blur-3xl" />
           <div className="relative grid gap-10 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">

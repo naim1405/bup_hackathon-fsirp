@@ -8,11 +8,12 @@ from collections.abc import AsyncIterator
 from typing import Any, Annotated
 
 import httpx
-from fastapi import APIRouter, Depends, Path, Query, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response
 from fastapi.responses import StreamingResponse
 from pydantic import TypeAdapter, ValidationError
 
 from app.simulator.client import SimulatorClient
+from app.telemetry import event, telemetry
 from app.simulator.models import (
     Allocation,
     DemandObservation,
@@ -191,7 +192,8 @@ async def _validated_sse_body(upstream: httpx.Response) -> AsyncIterator[bytes]:
                     try:
                         adapter.validate_python(json.loads(data))
                     except (json.JSONDecodeError, ValidationError) as exc:
-                        logger.warning("Dropping invalid simulator SSE event %s: %s", event_name, exc)
+                        telemetry.increment("stream_invalid_total")
+                        event("stream_invalid")
                         problem = StreamProtocolError(
                             event=event_name,
                             message="The simulator sent an event with an invalid payload.",
@@ -231,7 +233,13 @@ async def simulator_stream(
     client: Annotated[SimulatorClient, Depends(get_simulator_client)],
 ) -> StreamingResponse:
     """Proxy validated simulator SSE notifications to the caller."""
-    upstream = await client.open_event_stream()
+    try:
+        upstream = await client.open_event_stream()
+    except HTTPException:
+        telemetry.increment("stream_errors_total")
+        event("stream_open_failed")
+        raise
+    telemetry.increment("stream_connections_total")
 
     async def body() -> AsyncIterator[bytes]:
         try:
@@ -239,7 +247,11 @@ async def simulator_stream(
                 if await request.is_disconnected():
                     break
                 yield chunk
+        except httpx.RequestError:
+            telemetry.increment("stream_errors_total")
+            event("stream_interrupted")
         finally:
+            telemetry.increment("stream_closed_total")
             await upstream.aclose()
 
     return StreamingResponse(
