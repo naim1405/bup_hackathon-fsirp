@@ -23,7 +23,8 @@ The `main` branch has these implementation milestones:
 - `/api/v1/simulator/stream` proxies the simulator SSE stream and validates documented event payloads.
 - Pydantic models validate timestamps, status/fuel enums, numeric bounds, required fuel levels, and response shapes. Demand-history parameters are validated (limit 1–2000, default 200).
 - Upstream errors are translated to structured errors; stale data header is propagated.
-- Backend tests: **10 pass** using a mocked simulator API.
+- Simulator timestamps accept both timezone-less values observed on the VPS and timezone-aware values, without assigning a timezone when absent. This covers instance data, demand history, and SSE tick events; malformed timestamps remain rejected.
+- Backend tests: **19 pass** locally in a disposable Docker container using a mocked simulator API, including timestamp regressions. Deployment of the timestamp fix and its behavior on the VPS have not been verified here.
 
 #### Frontend
 
