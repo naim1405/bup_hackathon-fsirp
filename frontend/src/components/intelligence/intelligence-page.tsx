@@ -11,6 +11,7 @@ import {
 } from "@/lib/intelligence-api";
 import { Button } from "@/components/ui/button";
 import { Predictions } from "./predictions";
+import { ActionExplanation } from "./action-explanation";
 import { PlanReview } from "./plan-review";
 import { Panel, human } from "./shared";
 
@@ -226,6 +227,7 @@ export function IntelligencePage() {
         ) : plan ? (
           <PlanReview
             plan={plan}
+            alerts={alerts.isError ? [] : alerts.data}
             disabled={!canAct}
             disabledReason={
               busy
@@ -296,6 +298,10 @@ export function IntelligencePage() {
                   ? "This submits fuel allocations to the simulator. The backend revalidates safety and plan freshness."
                   : "This does not submit shipments."}
               </p>
+              <div className="mt-4 space-y-4">
+                <p className="text-sm font-semibold">{confirmation.action === "execute" ? "Shipments to submit" : confirmation.action === "reject" ? "Proposed shipments being rejected (nothing will be sent)" : "Proposed shipments to approve (not sent until execution)"}</p>
+                {confirmation.plan.recommendations.map(r => <ActionExplanation key={r.action.action_id} recommendation={r} alerts={alerts.isError ? [] : alerts.data} tick={confirmation.plan.as_of_tick} />)}
+              </div>
               <div className="mt-4 flex gap-3">
                 <Button
                   disabled={

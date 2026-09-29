@@ -1,14 +1,17 @@
-import type { Plan } from "@/lib/intelligence-api";
+import { ActionExplanation } from "./action-explanation";
+import type { AlertRecord, Plan } from "@/lib/intelligence-api";
 import { Button } from "@/components/ui/button";
 import { Panel, human, liters } from "./shared";
 export function PlanReview({
   plan,
+  alerts = [],
   disabled,
   executionEnabled,
   disabledReason,
   onAction,
 }: {
   plan: Plan;
+  alerts?: AlertRecord[];
   disabled: boolean;
   executionEnabled: boolean;
   disabledReason?: string;
@@ -126,11 +129,7 @@ export function PlanReview({
               {human(r.severity)} priority · {human(r.action.route_id)} ·
               Arrival tick {r.action.expected_arrival_tick}
             </p>
-            {r.reasons.map((reason, i) => (
-              <p key={i} className="text-sm">
-                {reason.detail}
-              </p>
-            ))}
+            <ActionExplanation recommendation={r} alerts={alerts} tick={plan.as_of_tick} />
             <details className="mt-2 text-xs text-slate-500">
               <summary>Checked constraints</summary>
               {r.constraints_checked.map((c) => (

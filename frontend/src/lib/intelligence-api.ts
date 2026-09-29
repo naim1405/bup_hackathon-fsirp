@@ -75,8 +75,12 @@ export interface Plan {
       fuel_type: string;
       quantity_liters: number;
       expected_arrival_tick: number;
+      dispatch_tick?: number;
+      transit_ticks?: number;
     };
     reasons: Reason[];
+    serving_findings?: string[];
+    reason_codes?: string[];
     constraints_checked: string[];
     severity: string;
   }[];
