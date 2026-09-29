@@ -10,6 +10,8 @@ import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.dashboard import router as dashboard_router
+from app.operations import router as operations_router
 from app.simulator.client import SimulatorClient
 from app.simulator.config import SIMULATOR_BASE_URL, SIMULATOR_TIMEOUT_SECONDS
 from app.simulator.routes import router as simulator_router
@@ -39,10 +41,11 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="Fuel Supply Intelligence & Resilience Platform API",
     description=(
-        "Read-only backend integration for the BUP Fuel Supply Simulator. "
-        "Simulator data is validated before it is returned to clients."
+        "Frontend-facing API for the BUP Fuel Supply Simulator. Simulator responses are "
+        "validated before they are returned; operator allocation commands are forwarded "
+        "only when explicitly enabled."
     ),
-    version="0.2.0",
+    version="0.3.0",
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
@@ -58,6 +61,8 @@ app.add_middleware(
 )
 
 app.include_router(simulator_router)
+app.include_router(dashboard_router)
+app.include_router(operations_router)
 
 
 @app.get("/", tags=["meta"], summary="API information")
@@ -70,6 +75,8 @@ def read_root() -> dict[str, str]:
         "docs": "/docs",
         "health": "/api/v1/health",
         "simulator_api": "/api/v1/simulator",
+        "dashboard_snapshot": "/api/v1/dashboard/snapshot",
+        "allocations_api": "/api/v1/allocations",
     }
 
 

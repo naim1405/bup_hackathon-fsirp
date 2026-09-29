@@ -177,6 +177,19 @@ class Allocation(SimulatorModel):
     failure_reason: str | None = None
 
 
+class AllocationCreateRequest(BaseModel):
+    """Operator-submitted allocation command accepted by the backend."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    idempotency_key: Annotated[str, Field(min_length=1, max_length=150, strict=True)]
+    source_depot_id: NonEmptyString
+    destination_station_id: NonEmptyString
+    route_id: NonEmptyString
+    fuel_type: FuelType
+    quantity: PositiveFloat
+
+
 class DemandObservation(SimulatorModel):
     id: PositiveInt
     station_id: NonEmptyString

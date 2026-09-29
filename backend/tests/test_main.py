@@ -9,6 +9,7 @@ from typing import Any
 import httpx
 import pytest
 
+from app import operations
 from app.main import app
 from app.simulator.client import SimulatorClient
 from app.simulator.routes import _validated_sse_body, get_simulator_client
@@ -30,6 +31,16 @@ class APIClient:
 
         return asyncio.run(request())
 
+    def post(self, path: str, **kwargs: Any) -> httpx.Response:
+        async def request() -> httpx.Response:
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app),
+                base_url="http://testserver",
+            ) as client:
+                return await client.post(path, **kwargs)
+
+        return asyncio.run(request())
+
 
 @pytest.fixture
 def api_client(request):
@@ -39,6 +50,33 @@ def api_client(request):
     def handler(request: httpx.Request) -> httpx.Response:
         calls.append(request)
         path = request.url.path
+        if request.method == "POST" and path == "/v1/allocations":
+            body = json.loads(request.content)
+            return httpx.Response(
+                201,
+                json={
+                    "id": 11,
+                    **body,
+                    "route_id": "route-dhaka-mirpur",
+                    "created_tick": 3,
+                    "status": "PENDING",
+                },
+            )
+        if request.method == "POST" and path == "/v1/allocations/11/cancel":
+            return httpx.Response(
+                200,
+                json={
+                    "id": 11,
+                    "idempotency_key": "op-test-11",
+                    "source_depot_id": "depot-gazipur",
+                    "destination_station_id": "station-mirpur",
+                    "route_id": "route-dhaka-mirpur",
+                    "fuel_type": "DIESEL",
+                    "quantity": 500,
+                    "created_tick": 3,
+                    "status": "CANCELLED",
+                },
+            )
         if path == "/v1/instance":
             return httpx.Response(
                 200,
@@ -53,6 +91,15 @@ def api_client(request):
                     "status": "PAUSED",
                 },
             )
+        if path == "/v1/health":
+            return httpx.Response(
+                200,
+                json={"status": "ok", "database": "ok", "simulation": {"status": "PAUSED", "tick": 0}},
+            )
+        if path in {"/v1/regions", "/v1/depots", "/v1/supply-arrivals", "/v1/events"}:
+            return httpx.Response(200, json=[])
+        if path == "/v1/allocations":
+            return httpx.Response(200, json=[])
         if path == "/v1/stations":
             return httpx.Response(
                 200,
@@ -87,7 +134,30 @@ def api_client(request):
                 ],
             )
         if path == "/v1/routes":
-            return httpx.Response(200, json=[{"id": "broken-route", "transit_ticks": 0}])
+            return httpx.Response(
+                200,
+                json=[
+                    {
+                        "id": "route-dhaka-mirpur",
+                        "source_depot_id": "depot-gazipur",
+                        "destination_station_id": "station-mirpur",
+                        "transit_ticks": 2,
+                        "max_shipment": 2000,
+                        "status": "AVAILABLE",
+                    }
+                ],
+            )
+        if path == "/v1/metrics":
+            return httpx.Response(
+                200,
+                json={
+                    "served_demand_liters": 90,
+                    "unmet_demand_liters": 5,
+                    "service_level": 1.4,
+                    "allocation_liters": 500,
+                    "allocation_failures": 0,
+                },
+            )
         return httpx.Response(404, json={"detail": {"code": "NOT_FOUND"}})
 
     async def mock_simulator_dependency():
@@ -175,10 +245,98 @@ def test_demand_history_rejects_out_of_range_limit_without_upstream_call(api_cli
 
 def test_invalid_upstream_payload_returns_502(api_client) -> None:
     client, _ = api_client
-    response = client.get("/api/v1/simulator/routes")
+    response = client.get("/api/v1/simulator/metrics")
 
     assert response.status_code == 502
     assert response.json()["detail"]["code"] == "INVALID_SIMULATOR_RESPONSE"
+
+
+def test_dashboard_snapshot_returns_partial_state_and_resource_health(api_client) -> None:
+    client, calls = api_client
+    response = client.get(
+        "/api/v1/dashboard/snapshot",
+        params={"history_limit": 50, "station_id": "station-mirpur"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["instance"]["tick"] == 0
+    assert body["as_of_tick"] == 0
+    assert body["consistent"] is True
+    assert body["complete"] is False  # Metrics are intentionally malformed in the mock.
+    assert body["stale"] is True
+    assert body["stations"][0]["id"] == "station-mirpur"
+    assert body["resource_status"]["stations"]["status"] == "stale"
+    assert body["resource_status"]["metrics"]["error_code"] == "INVALID_SIMULATOR_RESPONSE"
+    assert response.headers["X-Simulator-Stale"] == "true"
+    demand_request = next(call for call in calls if call.url.path == "/v1/demand-history")
+    assert demand_request.url.params["limit"] == "50"
+    assert demand_request.url.params["station_id"] == "station-mirpur"
+
+
+def test_allocation_write_is_disabled_by_default(api_client) -> None:
+    client, calls = api_client
+    before = len(calls)
+    response = client.post(
+        "/api/v1/allocations",
+        json={
+            "idempotency_key": "op-test-11",
+            "source_depot_id": "depot-gazipur",
+            "destination_station_id": "station-mirpur",
+            "route_id": "route-dhaka-mirpur",
+            "fuel_type": "DIESEL",
+            "quantity": 500,
+        },
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"]["code"] == "SIMULATOR_WRITES_DISABLED"
+    assert len(calls) == before
+
+
+def test_operator_allocation_and_cancel_are_forwarded_when_enabled(api_client, monkeypatch) -> None:
+    client, calls = api_client
+    monkeypatch.setattr(operations, "SIMULATOR_WRITES_ENABLED", True)
+    command = {
+        "idempotency_key": "op-test-11",
+        "source_depot_id": "depot-gazipur",
+        "destination_station_id": "station-mirpur",
+        "route_id": "route-dhaka-mirpur",
+        "fuel_type": "DIESEL",
+        "quantity": 500,
+    }
+
+    created = client.post("/api/v1/allocations", json=command)
+    assert created.status_code == 201
+    assert created.json()["status"] == "PENDING"
+    assert created.json()["route_id"] == "route-dhaka-mirpur"
+    create_request = next(call for call in calls if call.method == "POST")
+    assert create_request.url.path == "/v1/allocations"
+    assert json.loads(create_request.content) == command
+
+    cancelled = client.post("/api/v1/allocations/11/cancel")
+    assert cancelled.status_code == 200
+    assert cancelled.json()["status"] == "CANCELLED"
+    assert calls[-1].url.path == "/v1/allocations/11/cancel"
+    assert calls[-1].method == "POST"
+
+
+def test_allocation_request_validation_rejects_bad_quantity(api_client) -> None:
+    client, calls = api_client
+    before = len(calls)
+    response = client.post(
+        "/api/v1/allocations",
+        json={
+            "idempotency_key": "op-test-invalid",
+            "source_depot_id": "depot-gazipur",
+            "destination_station_id": "station-mirpur",
+            "route_id": "route-dhaka-mirpur",
+            "fuel_type": "DIESEL",
+            "quantity": 0,
+        },
+    )
+    assert response.status_code == 422
+    assert len(calls) == before
 
 
 def test_unknown_upstream_entity_error_is_preserved(api_client) -> None:
@@ -187,6 +345,7 @@ def test_unknown_upstream_entity_error_is_preserved(api_client) -> None:
 
     assert response.status_code == 404
     assert response.json()["detail"]["code"] == "SIMULATOR_REQUEST_FAILED"
+    assert response.json()["detail"]["upstream_code"] == "NOT_FOUND"
     assert response.json()["detail"]["upstream_status"] == 404
 
 

@@ -41,6 +41,7 @@ Compose defaults are suitable for a local demo. Set shell variables or copy `dep
 - `SIMULATOR_START_MODE` (default `paused`)
 - `SIMULATOR_BIND_ADDRESS`, `BACKEND_BIND_ADDRESS`, `FRONTEND_BIND_ADDRESS`
 - `SIMULATOR_TIMEOUT_SECONDS`
+- `SIMULATOR_WRITES_ENABLED` (default `false`; do not enable on a public backend without operator authentication/access control)
 - `BACKEND_API_URL` (frontend **build-time** rewrite target; local Compose default is `http://backend:8001`)
 
 Do not commit `.env` files. The example contains no secrets.
@@ -62,7 +63,7 @@ This is the recommended split deployment when you want Vercel hosting for the UI
    - Simulator/admin: `127.0.0.1:8000` — keep private.
    - FastAPI: `127.0.0.1:8001` — put a TLS reverse proxy in front if it must be reachable from Vercel.
 4. Configure a domain and HTTPS reverse proxy, such as Caddy. A minimal example is in [`Caddyfile.example`](Caddyfile.example). Set your firewall so only the proxy's public HTTPS port is exposed; do not expose port 8000 or the simulator `/admin` UI.
-5. Verify `https://hackathon.bebsapati.com/api/v1/health` and `https://hackathon.bebsapati.com/api/v1/simulator/instance` from outside the VPS. Backend health can be healthy even if the simulator is not; test the simulator route separately.
+5. Verify `https://hackathon.bebsapati.com/api/v1/health`, `https://hackathon.bebsapati.com/api/v1/dashboard/snapshot`, and `https://hackathon.bebsapati.com/api/v1/simulator/instance` from outside the VPS. Backend health can be healthy even if the simulator is not; test simulator-backed routes separately.
 
 ### On Vercel
 
@@ -72,7 +73,7 @@ This is the recommended split deployment when you want Vercel hosting for the UI
 4. Redeploy after changing this value. The Next.js rewrite destination is generated from `next.config.ts` at build time; changing only a runtime variable is not enough for an already-built deployment.
 5. From the browser, keep calling relative paths such as `/api/backend/v1/simulator/instance`. Vercel's Next.js layer performs the server-to-server rewrite to the VPS API; do not put the VPS URL in a `NEXT_PUBLIC_*` variable or fetch it directly from browser code.
 
-The backend currently exposes read-only simulator data and has no application authentication. A public API origin is therefore reachable by anyone who knows the URL. Apply appropriate rate limits/access controls for the event environment. **Before adding allocation writes, require authenticated/authorized operator approval and protect action routes**; a public Next.js rewrite alone is not authorization.
+The backend exposes simulator reads and also has allocation create/cancel routes that are **disabled by default** (`SIMULATOR_WRITES_ENABLED=false`). It has no application authentication/authorization. Keep writes disabled on any publicly reachable VPS unless action routes are protected by authenticated/authorized operator access; a public Next.js rewrite or the feature flag alone is not authorization. The API contract is documented in [`../docs/frontend-backend-api.md`](../docs/frontend-backend-api.md). Apply suitable access controls and rate limits to the public API origin.
 
 Vercel and other serverless gateways may impose connection-duration/idle limits on long-lived responses. Validate the SSE route through the actual Vercel deployment. If the provider closes or buffers the stream, use a streaming-capable route handler/runtime or host the frontend container beside FastAPI behind a reverse proxy (the Caddy example disables proxy buffering for streams). Keep REST refetch/reconnect behavior as the fallback because REST remains the source of truth.
 
