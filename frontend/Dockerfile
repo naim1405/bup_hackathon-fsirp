@@ -9,7 +9,9 @@ RUN npm ci
 
 FROM base AS builder
 ARG BACKEND_API_URL=http://backend:8001
+ARG NEXT_PUBLIC_BACKEND_WS_URL=ws://localhost:8001/api/v1/ws
 ENV BACKEND_API_URL=${BACKEND_API_URL} \
+    NEXT_PUBLIC_BACKEND_WS_URL=${NEXT_PUBLIC_BACKEND_WS_URL} \
     DOCKER_BUILD=1 \
     NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules

@@ -16,7 +16,7 @@ cp .env.example .env.local
 npm run dev -- --hostname 0.0.0.0 --port 3000
 ```
 
-The frontend uses a same-origin rewrite: browser requests to `/api/backend/*` are proxied server-side to FastAPI. The default target is `http://127.0.0.1:8001`; set `BACKEND_API_URL` in `frontend/.env.local` if the backend runs elsewhere. Do not call the simulator or localhost directly from browser code.
+The frontend uses a same-origin rewrite for REST: browser requests to `/api/backend/*` are proxied server-side to FastAPI. The default target is `http://127.0.0.1:8001`; set `BACKEND_API_URL` in `frontend/.env.local` if the backend runs elsewhere. Live-update WebSockets connect directly to FastAPI at `NEXT_PUBLIC_BACKEND_WS_URL` (default `ws://127.0.0.1:8001/api/v1/ws`); configure that URL and the backend `CORS_ORIGINS` for remote deployments. The browser never calls the simulator directly.
 
 ## Run the backend
 

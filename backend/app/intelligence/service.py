@@ -29,6 +29,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -143,6 +144,7 @@ class IntelligenceEngine:
         policy: PolicyConfig | None = None,
         *,
         simulator_writes_enabled: bool | None = None,
+        publish_update: Callable[[], Awaitable[None]] | None = None,
     ) -> None:
         self.policy = policy or PolicyConfig()
         self.simulator_writes_enabled = (
@@ -151,6 +153,7 @@ class IntelligenceEngine:
             else simulator_writes_enabled
         )
         self._http = http
+        self._publish_update = publish_update
         self.model: DemandModel | None = None
         self.snapshot: Snapshot | None = None
         self.snapshot_id: str | None = None
@@ -399,6 +402,15 @@ class IntelligenceEngine:
         async with self._run_lock:
             return await self._run_once_locked(force=force)
 
+    async def _publish_refresh(self) -> None:
+        """Best-effort notification; realtime delivery must not fail engine work."""
+        if self._publish_update is None:
+            return
+        try:
+            await self._publish_update()
+        except Exception:  # noqa: BLE001
+            logger.warning("Could not publish a WebSocket refresh notification.")
+
     async def _run_once_locked(self, *, force: bool) -> EngineResults:
         started = time.monotonic()
         try:
@@ -626,6 +638,7 @@ class IntelligenceEngine:
             self.run_count += 1
             self.total_runtime_ms += (time.monotonic() - started) * 1000
             self.last_error = None
+            await self._publish_refresh()
             return self.latest
         except Exception as exc:  # noqa: BLE001 — the engine must never crash the loop
             self.last_error = f"{type(exc).__name__}: {exc}"

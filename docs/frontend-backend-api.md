@@ -18,7 +18,14 @@ For example, browser `GET /api/backend/v1/dashboard/snapshot` becomes FastAPI `G
 | `POST /api/v1/allocations` | `/api/backend/v1/allocations` | Submit one explicit operator-approved allocation. Disabled by default. |
 | `POST /api/v1/allocations/{allocation_id}/cancel` | same path under `/api/backend` | Request cancellation of an allocation. Disabled by default. |
 | `GET /api/v1/simulator/{resource}` | same path under `/api/backend` | Granular validated read endpoints for health, instance, regions, depots, stations, routes, supply arrivals, events, allocations, demand history, and metrics. |
-| `GET /api/v1/simulator/stream` | `/api/backend/v1/simulator/stream` | Validated simulator SSE proxy. This is not a WebSocket. |
+| `GET /api/v1/simulator/stream` | `/api/backend/v1/simulator/stream` | Validated simulator SSE proxy. |
+| `WS /api/v1/ws` | Browser connects to the configured FastAPI WebSocket URL | Receives refresh notifications; it never calls the simulator. |
+
+### Live refresh notifications
+
+The browser opens a WebSocket to FastAPI at `/api/v1/ws`. FastAPI sends a small `connected` message on connect and an `update` message after the intelligence engine collects a fresh simulator tick. The frontend treats `update` only as a signal to refetch `/api/backend/v1/dashboard/snapshot`; REST remains the validated source of truth. Existing periodic and manual refreshes remain as a fallback when the socket is unavailable.
+
+Next.js rewrites do not proxy WebSocket upgrades, so this socket uses `NEXT_PUBLIC_BACKEND_WS_URL` (for example, `ws://localhost:8001/api/v1/ws` locally or `wss://api.example.com/api/v1/ws` in production). Configure the backend's `CORS_ORIGINS` with the exact frontend origin. These messages contain no simulator state or IDs.
 
 Dashboard demand history can be narrowed with `?history_limit=200&station_id=station-mirpur`; `history_limit` is constrained to 1–2000. Snapshot resources are fetched concurrently and are **not** a simulator transaction. `consistent` is true only when the simulator tick before and after the fetch matches.
 
@@ -60,4 +67,4 @@ The request body for `POST /api/v1/allocations` is validated and rejects unknown
 
 ## Current boundary / not included
 
-The frontend should fetch REST snapshot state on page load, after operator actions, and when it needs to refresh. SSE is available as a notification channel; on an event, refetch REST state rather than treating the event as the full source of truth. WebSockets, recommendation endpoints, forecasts, database persistence, and an operator-authentication system are not part of this API milestone.
+The frontend fetches REST snapshot state on page load and uses WebSocket notifications to refresh when simulator ticks advance. SSE remains available for validated simulator events. Both are notification channels; refetch REST rather than treating a push event as full state. Recommendation UI, database persistence, and operator authentication are not part of this milestone.
