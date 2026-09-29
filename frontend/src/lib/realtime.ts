@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { QueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 export type RealtimeStatus =
   "connecting" | "connected" | "reconnecting" | "polling";
@@ -39,8 +40,26 @@ export function useRealtimeUpdates(queryClient: QueryClient): RealtimeStatus {
 
       connection.onmessage = (message) => {
         try {
-          const event = JSON.parse(String(message.data)) as { type?: string };
-          if (event.type === "update") refreshDashboard();
+          const event = JSON.parse(String(message.data)) as {
+            type?: string;
+            title?: unknown;
+            message?: unknown;
+          };
+          if (event.type === "update") {
+            refreshDashboard();
+          } else if (event.type === "decision_required") {
+            toast.info(
+              typeof event.title === "string" ? event.title : "Decision needed",
+              {
+                description:
+                  typeof event.message === "string"
+                    ? event.message
+                    : "A recommendation is ready for review.",
+                duration: 10_000,
+              },
+            );
+            refreshDashboard();
+          }
         } catch {
           // Ignore malformed notifications and keep REST polling as a fallback.
         }

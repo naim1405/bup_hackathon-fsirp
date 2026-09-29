@@ -25,6 +25,8 @@ For example, browser `GET /api/backend/v1/dashboard/snapshot` becomes FastAPI `G
 
 The browser opens a WebSocket to FastAPI at `/api/v1/ws`. FastAPI sends a small `connected` message on connect and an `update` message after the intelligence engine collects a fresh simulator tick. The frontend treats `update` only as a signal to refetch `/api/backend/v1/dashboard/snapshot`; REST remains the validated source of truth. Existing periodic and manual refreshes remain as a fallback when the socket is unavailable.
 
+A `decision_required` message is handled as a user-facing toast and also invalidates the REST snapshot. To manually test that path in Swagger, keep an operator dashboard open with its WebSocket connected, then run `POST /api/v1/realtime/test-decision-notification` from FastAPI `/docs`. The response reports `connected_clients`; the open dashboard should show “Decision needed.” This sample endpoint does not create a plan or change simulator state. It only tests notification delivery; automatic decision-triggered notifications are not wired by this test route.
+
 Next.js rewrites do not proxy WebSocket upgrades, so this socket uses `NEXT_PUBLIC_BACKEND_WS_URL` (for example, `ws://localhost:8001/api/v1/ws` locally or `wss://api.example.com/api/v1/ws` in production). Configure the backend's `CORS_ORIGINS` with the exact frontend origin. These messages contain no simulator state or IDs.
 
 Dashboard demand history can be narrowed with `?history_limit=200&station_id=station-mirpur`; `history_limit` is constrained to 1–2000. Snapshot resources are fetched concurrently and are **not** a simulator transaction. `consistent` is true only when the simulator tick before and after the fetch matches.

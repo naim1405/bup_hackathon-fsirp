@@ -13,15 +13,10 @@ def create_test_app() -> tuple[FastAPI, WebSocketUpdateHub]:
     app.state.websocket_update_hub = hub
     app.include_router(router)
 
-    @app.post("/publish")
-    async def publish() -> dict[str, str]:
-        await hub.publish_update()
-        return {"status": "ok"}
-
     return app, hub
 
 
-def test_websocket_sends_update_notifications() -> None:
+def test_swagger_test_endpoint_sends_decision_notification() -> None:
     app, _ = create_test_app()
 
     with TestClient(app) as client:
@@ -29,8 +24,13 @@ def test_websocket_sends_update_notifications() -> None:
             "/api/v1/ws", headers={"Origin": "http://localhost:3000"}
         ) as websocket:
             assert websocket.receive_json() == {"type": "connected"}
-            assert client.post("/publish").status_code == 200
-            assert websocket.receive_json() == {"type": "update"}
+            response = client.post("/api/v1/realtime/test-decision-notification")
+            assert response.status_code == 200
+            assert response.json()["connected_clients"] == 1
+            event = websocket.receive_json()
+            assert event["type"] == "decision_required"
+            assert event["title"] == "Decision needed"
+            assert event["source"] == "manual_test"
 
 
 def test_websocket_rejects_unconfigured_browser_origin() -> None:
