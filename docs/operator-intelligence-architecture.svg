@@ -1,0 +1,255 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2000" height="1160" viewBox="0 0 2000 1160" role="img" aria-labelledby="title desc">
+  <title id="title">Operator-in-the-loop intelligence architecture</title>
+  <desc id="desc">Architecture diagram showing simulator reads flowing through FastAPI, an intelligence engine producing recommendations for an operator dashboard, and simulator allocations occurring only after explicit approval, fresh-state validation, and two backend write gates. The browser communicates only with FastAPI.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f8fbfa"/>
+      <stop offset="1" stop-color="#eef5f3"/>
+    </linearGradient>
+    <linearGradient id="hero" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#0f766e"/>
+      <stop offset="1" stop-color="#2563eb"/>
+    </linearGradient>
+    <filter id="shadow" x="-15%" y="-15%" width="130%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#173b37" flood-opacity="0.08"/>
+    </filter>
+    <marker id="arrowTeal" markerWidth="12" markerHeight="12" refX="9" refY="6" orient="auto-start-reverse" markerUnits="userSpaceOnUse">
+      <path d="M1 1 L10 6 L1 11 Z" fill="#0f766e"/>
+    </marker>
+    <marker id="arrowBlue" markerWidth="12" markerHeight="12" refX="9" refY="6" orient="auto-start-reverse" markerUnits="userSpaceOnUse">
+      <path d="M1 1 L10 6 L1 11 Z" fill="#2563eb"/>
+    </marker>
+    <marker id="arrowPurple" markerWidth="12" markerHeight="12" refX="9" refY="6" orient="auto-start-reverse" markerUnits="userSpaceOnUse">
+      <path d="M1 1 L10 6 L1 11 Z" fill="#7c3aed"/>
+    </marker>
+    <marker id="arrowOrange" markerWidth="12" markerHeight="12" refX="9" refY="6" orient="auto-start-reverse" markerUnits="userSpaceOnUse">
+      <path d="M1 1 L10 6 L1 11 Z" fill="#d97706"/>
+    </marker>
+    <style>
+      text { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .eyebrow { font-size: 14px; font-weight: 750; letter-spacing: 2px; }
+      .title { font-size: 37px; font-weight: 760; letter-spacing: -0.8px; fill: #102a2a; }
+      .subtitle { font-size: 17px; font-weight: 450; fill: #607575; }
+      .panelTitle { font-size: 20px; font-weight: 720; fill: #122b2c; }
+      .panelDesc { font-size: 13px; font-weight: 450; fill: #758787; }
+      .cardTitle { font-size: 15px; font-weight: 720; fill: #183b3a; }
+      .body { font-size: 13px; font-weight: 470; fill: #536968; }
+      .small { font-size: 11px; font-weight: 500; fill: #718381; }
+      .tiny { font-size: 10px; font-weight: 600; fill: #718381; }
+      .flowLabel { font-size: 12px; font-weight: 680; fill: #294746; }
+      .white { fill: #fff; }
+    </style>
+  </defs>
+
+  <rect width="2000" height="1160" fill="url(#bg)"/>
+  <circle cx="1890" cy="90" r="155" fill="#d9efeb" opacity="0.38"/>
+  <circle cx="1810" cy="52" r="82" fill="#dbeafe" opacity="0.38"/>
+
+  <!-- Header -->
+  <text x="70" y="58" class="eyebrow" fill="#0f766e">FSIRP • DECISION INTELLIGENCE</text>
+  <text x="70" y="108" class="title">Operator-in-the-loop architecture</text>
+  <text x="70" y="140" class="subtitle">Recommendations are explainable and reviewable; simulator writes happen only after an explicit, validated operator decision.</text>
+  <g transform="translate(1525 105)">
+    <circle cx="0" cy="0" r="5" fill="#0f766e"/><text x="13" y="4" class="small">REST data</text>
+    <circle cx="118" cy="0" r="5" fill="#2563eb"/><text x="131" y="4" class="small">WebSocket signal</text>
+    <circle cx="286" cy="0" r="5" fill="#7c3aed"/><text x="299" y="4" class="small">Operator action</text>
+    <circle cx="444" cy="0" r="5" fill="#d97706"/><text x="457" y="4" class="small">Gated simulator write</text>
+  </g>
+
+  <!-- Main panels -->
+  <rect x="60" y="185" width="440" height="755" rx="24" fill="#ffffff" stroke="#dce9e6" filter="url(#shadow)"/>
+  <rect x="720" y="185" width="600" height="755" rx="24" fill="#f5fbf9" stroke="#b9ddd5" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="1540" y="185" width="400" height="755" rx="24" fill="#ffffff" stroke="#dce9e6" filter="url(#shadow)"/>
+
+  <!-- Frontend panel -->
+  <g>
+    <rect x="88" y="215" width="38" height="38" rx="12" fill="#dcfce7"/>
+    <path d="M99 227h16v13H99z M103 223h8v4h-8z M104 232h3v4h-3z M110 232h3v4h-3z" fill="none" stroke="#0f766e" stroke-width="1.7" stroke-linejoin="round"/>
+    <text x="140" y="232" class="panelTitle">Operator dashboard</text>
+    <text x="140" y="252" class="panelDesc">Next.js • human review and action</text>
+
+    <rect x="88" y="278" width="384" height="370" rx="18" fill="#fbfefd" stroke="#d8e8e4"/>
+    <rect x="108" y="298" width="108" height="22" rx="11" fill="#e6f5f1"/>
+    <text x="122" y="313" class="tiny" fill="#0f766e">DECISION REVIEW</text>
+    <text x="108" y="350" class="cardTitle" font-size="17">Proposed depot deliveries</text>
+    <text x="108" y="373" class="small">Priority • route • quantity • rationale • projected impact</text>
+
+    <rect x="108" y="392" width="344" height="74" rx="13" fill="#ffffff" stroke="#e1ece9"/>
+    <circle cx="127" cy="414" r="5" fill="#f59e0b"/>
+    <text x="142" y="418" class="body" font-weight="700">Gazipur Depot  →  Mirpur Station</text>
+    <text x="126" y="441" class="small">Diesel • proposed liters • ETA • demand rationale</text>
+    <text x="126" y="456" class="tiny" fill="#0f766e">Impact and constraints shown before action</text>
+
+    <rect x="108" y="478" width="344" height="54" rx="12" fill="#f1f7f6"/>
+    <text x="124" y="500" class="small" font-weight="650">Operator name or ID</text>
+    <line x1="124" y1="517" x2="420" y2="517" stroke="#bdceca" stroke-width="1.3"/>
+
+    <rect x="108" y="548" width="211" height="42" rx="12" fill="#0f766e"/>
+    <path d="M128 563v13m-5-5 5 5 5-5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="145" y="574" font-size="12" font-weight="700" fill="#fff">Approve &amp; send</text>
+    <rect x="329" y="548" width="123" height="42" rx="12" fill="#fff" stroke="#d9e4e2"/>
+    <text x="358" y="574" font-size="12" font-weight="680" fill="#526665">Reject</text>
+    <text x="108" y="619" class="tiny">Explicit confirmation required before dispatch.</text>
+
+    <rect x="88" y="672" width="384" height="94" rx="16" fill="#f4f8ff" stroke="#dbe6fb"/>
+    <circle cx="112" cy="699" r="12" fill="#e4edff"/>
+    <path d="M107 699h10m-4-4 4 4-4 4" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="134" y="700" class="cardTitle" fill="#1d4ed8">REST is the source of truth</text>
+    <text x="108" y="724" class="small">Dashboard reads snapshots, recommendations and status</text>
+    <text x="108" y="744" class="small">through the same-origin `/api/backend` path.</text>
+
+    <rect x="88" y="785" width="384" height="112" rx="16" fill="#fff8eb" stroke="#f5dfb7"/>
+    <circle cx="112" cy="812" r="12" fill="#ffedc9"/>
+    <path d="M112 805v8m0 5v.5" stroke="#b45309" stroke-width="2" stroke-linecap="round"/>
+    <text x="134" y="813" class="cardTitle" fill="#92400e">Browser never calls the simulator</text>
+    <text x="108" y="840" class="small">Approve, reject and execute requests go to FastAPI.</text>
+    <text x="108" y="860" class="small">No direct browser-to-simulator connection exists.</text>
+  </g>
+
+  <!-- Backend panel -->
+  <g>
+    <rect x="748" y="215" width="38" height="38" rx="12" fill="#d9f1ec"/>
+    <path d="M758 224h18v5h-18zM758 232h18v5h-18zM758 240h18v5h-18z" fill="none" stroke="#0f766e" stroke-width="1.6" rx="1"/>
+    <circle cx="762" cy="226.5" r=".9" fill="#0f766e"/><circle cx="762" cy="234.5" r=".9" fill="#0f766e"/><circle cx="762" cy="242.5" r=".9" fill="#0f766e"/>
+    <text x="800" y="232" class="panelTitle">FastAPI backend</text>
+    <text x="800" y="252" class="panelDesc">Validated APIs • intelligence • simulator boundary</text>
+
+    <rect x="750" y="280" width="540" height="92" rx="16" fill="#ffffff" stroke="#cde4de"/>
+    <rect x="770" y="298" width="31" height="31" rx="9" fill="#e6f5f1"/>
+    <path d="M779 307h13v13h-13zM782 304h7v3h-7z" fill="none" stroke="#0f766e" stroke-width="1.5"/>
+    <text x="816" y="309" class="cardTitle">REST API + validated dashboard snapshot</text>
+    <text x="770" y="341" class="small">Fetches current simulator state; validates it before returning it to the UI.</text>
+    <text x="770" y="358" class="tiny">Partial availability and snapshot consistency are reported explicitly.</text>
+
+    <rect x="750" y="395" width="540" height="228" rx="17" fill="#ffffff" stroke="#cde4de"/>
+    <text x="774" y="426" class="cardTitle">Intelligence engine</text>
+    <text x="774" y="447" class="small">Runs on new simulator ticks; creates advice, never autonomous dispatch.</text>
+    <rect x="774" y="468" width="148" height="118" rx="13" fill="#eff8f5" stroke="#dcece7"/>
+    <circle cx="798" cy="492" r="13" fill="#d6f1e8"/>
+    <path d="M792 495c3-7 7-7 11 0M793 489c3-4 6-4 10 0" fill="none" stroke="#0f766e" stroke-width="1.5" stroke-linecap="round"/>
+    <text x="820" y="496" class="cardTitle" font-size="13">Forecast</text>
+    <text x="790" y="527" class="small">Demand models</text>
+    <text x="790" y="546" class="small">+ uncertainty</text>
+    <text x="790" y="570" class="tiny">Train • predict</text>
+
+    <path d="M930 526h13" stroke="#9bbcb5" stroke-width="2" marker-end="url(#arrowTeal)"/>
+    <rect x="950" y="468" width="148" height="118" rx="13" fill="#eff8f5" stroke="#dcece7"/>
+    <circle cx="974" cy="492" r="13" fill="#d6f1e8"/>
+    <path d="M968 496l4-8 4 5 4-7" fill="none" stroke="#0f766e" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="996" y="496" class="cardTitle" font-size="13">Detect</text>
+    <text x="966" y="527" class="small">Shortages, outages</text>
+    <text x="966" y="546" class="small">+ network risks</text>
+    <text x="966" y="570" class="tiny">Explain findings</text>
+
+    <path d="M1106 526h13" stroke="#9bbcb5" stroke-width="2" marker-end="url(#arrowTeal)"/>
+    <rect x="1126" y="468" width="140" height="118" rx="13" fill="#eff8f5" stroke="#dcece7"/>
+    <circle cx="1150" cy="492" r="13" fill="#d6f1e8"/>
+    <path d="M1144 492h12m-4-4 4 4-4 4M1150 486v12" fill="none" stroke="#0f766e" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="1172" y="496" class="cardTitle" font-size="13">Plan</text>
+    <text x="1142" y="527" class="small">Constrained</text>
+    <text x="1142" y="546" class="small">allocations</text>
+    <text x="1142" y="570" class="tiny">Routes • stock • capacity</text>
+
+    <rect x="750" y="650" width="255" height="145" rx="16" fill="#f7f3ff" stroke="#e4d9fa"/>
+    <rect x="770" y="669" width="27" height="27" rx="8" fill="#ede5ff"/>
+    <path d="M777 677h13v10h-13zM780 674h7v3h-7z" fill="none" stroke="#7c3aed" stroke-width="1.4"/>
+    <text x="808" y="687" class="cardTitle" fill="#5b21b6">Operator action routes</text>
+    <text x="770" y="718" class="small">Approve • reject • execute</text>
+    <text x="770" y="740" class="tiny">Explicit operator identity + confirmation</text>
+    <text x="770" y="764" class="tiny">Execution rechecks the approved plan.</text>
+
+    <path d="M1007 722h15" stroke="#7c3aed" stroke-width="2.5" marker-end="url(#arrowPurple)"/>
+    <rect x="1025" y="650" width="265" height="145" rx="16" fill="#fff8eb" stroke="#f1d8ab"/>
+    <rect x="1045" y="669" width="27" height="27" rx="8" fill="#ffedc9"/>
+    <path d="M1058.5 674v8m0 4v.5M1052 691h13" stroke="#b45309" stroke-width="1.8" stroke-linecap="round"/>
+    <text x="1083" y="687" class="cardTitle" fill="#92400e">Execution safety gate</text>
+    <text x="1045" y="718" class="small">Explicit approval + fresh-state</text>
+    <text x="1045" y="737" class="small">revalidation + both write flags</text>
+    <rect x="1045" y="754" width="225" height="25" rx="8" fill="#fff" stroke="#f0d9b5"/>
+    <text x="1054" y="771" font-size="9.5" font-weight="650" fill="#9a5b12">SIMULATOR_WRITES_ENABLED=true</text>
+    <text x="1045" y="790" font-size="9.5" font-weight="650" fill="#9a5b12">INTELLIGENCE_EXECUTION_ENABLED=true</text>
+  </g>
+
+  <!-- Simulator panel -->
+  <g>
+    <rect x="1568" y="215" width="38" height="38" rx="12" fill="#e5edff"/>
+    <path d="M1577 224h20v17h-20zM1581 228h4v4h-4zM1589 228h4v4h-4zM1581 235h4v3h-4zM1589 235h4v3h-4z" fill="none" stroke="#3159a8" stroke-width="1.5"/>
+    <text x="1620" y="232" class="panelTitle">Fuel simulator</text>
+    <text x="1620" y="252" class="panelDesc">System of record • simulator-owned state</text>
+
+    <rect x="1568" y="280" width="344" height="248" rx="17" fill="#ffffff" stroke="#dbe5f5"/>
+    <rect x="1588" y="301" width="30" height="30" rx="9" fill="#edf3ff"/>
+    <path d="M1594 309h18v14h-18zM1598 306h10v3h-10z" fill="none" stroke="#3159a8" stroke-width="1.5"/>
+    <text x="1630" y="321" class="cardTitle">Simulator read API</text>
+    <text x="1588" y="359" class="body">Current state and history</text>
+    <circle cx="1595" cy="385" r="3" fill="#0f766e"/><text x="1608" y="389" class="small">Station &amp; depot inventories</text>
+    <circle cx="1595" cy="411" r="3" fill="#0f766e"/><text x="1608" y="415" class="small">Routes, supply arrivals, allocations</text>
+    <circle cx="1595" cy="437" r="3" fill="#0f766e"/><text x="1608" y="441" class="small">Demand history, metrics, sim tick</text>
+    <rect x="1588" y="464" width="304" height="42" rx="10" fill="#f3f7fd"/>
+    <text x="1602" y="482" class="tiny" fill="#3159a8">FastAPI validates responses before</text>
+    <text x="1602" y="497" class="tiny" fill="#3159a8">they reach the dashboard or planner.</text>
+
+    <rect x="1568" y="552" width="344" height="242" rx="17" fill="#ffffff" stroke="#f2ddb9"/>
+    <rect x="1588" y="573" width="30" height="30" rx="9" fill="#fff3dd"/>
+    <path d="M1595 589h16m-6-6 6 6-6 6M1603 580v18" fill="none" stroke="#b45309" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="1630" y="593" class="cardTitle" fill="#92400e">Allocation write API</text>
+    <text x="1588" y="632" class="body">Accepts approved dispatches</text>
+    <text x="1588" y="660" class="small">FastAPI submits allocations only after</text>
+    <text x="1588" y="680" class="small">all safety checks pass.</text>
+    <line x1="1588" y1="704" x2="1892" y2="704" stroke="#f0e5d4"/>
+    <text x="1588" y="731" class="small">Simulator returns allocation outcomes;</text>
+    <text x="1588" y="751" class="small">FastAPI reconciles and reports status.</text>
+    <rect x="1588" y="765" width="143" height="20" rx="10" fill="#fff3dd"/>
+    <text x="1600" y="779" class="tiny" fill="#9a5b12">No autonomous dispatch</text>
+  </g>
+
+  <!-- Cross-system flows: REST -->
+  <g>
+    <!-- FastAPI REST response to dashboard -->
+    <line x1="720" y1="340" x2="500" y2="340" stroke="#0f766e" stroke-width="3" marker-start="url(#arrowTeal)" marker-end="url(#arrowTeal)"/>
+    <rect x="515" y="286" width="190" height="44" rx="12" fill="#e4f4ef" stroke="#c7e6dc"/>
+    <text x="610" y="304" text-anchor="middle" class="flowLabel" fill="#0f766e">REST via `/api/backend`</text>
+    <text x="610" y="320" text-anchor="middle" class="tiny" fill="#287b71">snapshot • plan • status</text>
+
+    <!-- WebSocket refresh notification -->
+    <line x1="720" y1="444" x2="500" y2="444" stroke="#2563eb" stroke-width="2.5" stroke-dasharray="8 7" marker-end="url(#arrowBlue)"/>
+    <rect x="515" y="390" width="190" height="44" rx="12" fill="#edf3ff" stroke="#d7e3fb"/>
+    <text x="610" y="408" text-anchor="middle" class="flowLabel" fill="#1d4ed8">WebSocket signal</text>
+    <text x="610" y="424" text-anchor="middle" class="tiny" fill="#5070ae">`update` • `decision_required`</text>
+
+    <!-- Operator request to FastAPI -->
+    <line x1="500" y1="828" x2="720" y2="828" stroke="#7c3aed" stroke-width="3" marker-end="url(#arrowPurple)"/>
+    <rect x="515" y="774" width="190" height="44" rx="12" fill="#f2ecff" stroke="#e3d8fb"/>
+    <text x="610" y="792" text-anchor="middle" class="flowLabel" fill="#6d28d9">Operator decision</text>
+    <text x="610" y="808" text-anchor="middle" class="tiny" fill="#7954b4">approve • reject • execute</text>
+
+    <!-- Simulator reads into FastAPI -->
+    <line x1="1540" y1="340" x2="1320" y2="340" stroke="#0f766e" stroke-width="3" marker-start="url(#arrowTeal)" marker-end="url(#arrowTeal)"/>
+    <rect x="1335" y="286" width="190" height="44" rx="12" fill="#e4f4ef" stroke="#c7e6dc"/>
+    <text x="1430" y="304" text-anchor="middle" class="flowLabel" fill="#0f766e">Validated reads</text>
+    <text x="1430" y="320" text-anchor="middle" class="tiny" fill="#287b71">state • history • metrics</text>
+
+    <!-- Gated writes from FastAPI to simulator -->
+    <line x1="1320" y1="828" x2="1540" y2="828" stroke="#d97706" stroke-width="3.5" marker-end="url(#arrowOrange)"/>
+    <rect x="1335" y="774" width="190" height="44" rx="12" fill="#fff3dd" stroke="#f0d9b5"/>
+    <text x="1430" y="792" text-anchor="middle" class="flowLabel" fill="#b45309">Gated write</text>
+    <text x="1430" y="808" text-anchor="middle" class="tiny" fill="#9a5b12">POST allocations</text>
+  </g>
+
+  <!-- Principles footer -->
+  <rect x="60" y="972" width="1880" height="132" rx="22" fill="#102f30"/>
+  <text x="92" y="1012" class="eyebrow" fill="#8ee0c4">SAFETY &amp; DATA CONTRACT</text>
+  <text x="92" y="1046" font-size="16" font-weight="700" fill="#ffffff">Explicit human approval • fresh-state revalidation • two backend write gates default OFF</text>
+  <text x="92" y="1075" font-size="13" font-weight="450" fill="#c2d6d2">REST remains the source of truth; WebSockets only trigger refresh. FastAPI is the sole bridge between browser and simulator.</text>
+  <g transform="translate(1660 1036)">
+    <circle cx="0" cy="0" r="20" fill="#1f4d4b"/>
+    <path d="M-8 0h16m-6-6 6 6-6 6" fill="none" stroke="#8ee0c4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="34" y="5" font-size="13" font-weight="650" fill="#d8e8e3">Recommend</text>
+    <text x="135" y="5" font-size="13" fill="#82aaa2">→</text>
+    <text x="158" y="5" font-size="13" font-weight="650" fill="#d8e8e3">Review</text>
+    <text x="220" y="5" font-size="13" fill="#82aaa2">→</text>
+    <text x="244" y="5" font-size="13" font-weight="650" fill="#d8e8e3">Revalidate</text>
+    <text x="329" y="5" font-size="13" fill="#82aaa2">→</text>
+    <text x="352" y="5" font-size="13" font-weight="650" fill="#d8e8e3">Dispatch</text>
+  </g>
+</svg>

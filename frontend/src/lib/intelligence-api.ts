@@ -35,6 +35,7 @@ export interface PlanRecommendation {
   reasons: PlanReason[];
   reason_codes: string[];
   serving_findings: string[];
+  constraints_checked: string[];
 }
 
 export interface PlanNeed {
@@ -88,6 +89,10 @@ export interface DecisionPlan {
   rejection_reason: string;
 }
 
+// The modular intelligence page uses the concise alias while older dashboard
+// components retain the DecisionPlan name.
+export type Plan = DecisionPlan;
+
 export interface IntelligenceStatus {
   engine: "healthy" | "degraded" | "disabled";
   last_run_tick: number | null;
@@ -95,6 +100,85 @@ export interface IntelligenceStatus {
   last_error: string | null;
   run_count: number;
   execution_enabled: boolean;
+}
+
+export interface EngineStatus extends IntelligenceStatus {
+  snapshot_age_seconds: number | null;
+  fallback_active: boolean;
+  training: {
+    trained: boolean;
+    samples: number;
+    message: string;
+  };
+}
+
+export interface Prediction {
+  as_of_tick: number;
+  horizon_ticks: number;
+  generated_at_epoch: number;
+  notes: string[];
+  risk_by_station: Record<string, string>;
+  forecasts: {
+    station_id: string;
+    fuel_type: FuelType;
+    confidence: string;
+    method: string;
+    point: number[];
+    p10: number[];
+    p90: number[];
+    reasons: PlanReason[];
+  }[];
+  projections: {
+    station_id: string;
+    fuel_type: FuelType;
+    expected_unmet_liters: number;
+    first_unmet_offset: number | null;
+    current_inventory_liters: number;
+  }[];
+}
+
+export interface AlertRecord {
+  state: string;
+  acknowledged_by: string | null;
+  finding: {
+    finding_id: string;
+    title: string;
+    detail: string;
+    severity: string;
+    confidence: string;
+    category: string;
+  };
+}
+
+function safeErrorMessage(responseStatus: number, body: unknown) {
+  const detail =
+    body && typeof body === "object" && "detail" in body
+      ? (body as { detail?: unknown }).detail
+      : undefined;
+  const code =
+    detail && typeof detail === "object" && "code" in detail
+      ? String((detail as { code?: unknown }).code)
+      : "";
+
+  switch (code) {
+    case "SIMULATOR_WRITES_DISABLED":
+    case "INTELLIGENCE_EXECUTION_DISABLED":
+      return "Simulator dispatch is disabled in the backend settings.";
+    case "PLAN_NOT_FOUND":
+      return "This recommendation is no longer available. Refresh to review the latest plan.";
+    case "PLAN_NOT_APPROVABLE":
+    case "PLAN_NOT_EXECUTABLE":
+    case "PLAN_EXPIRED":
+      return "This plan can’t be actioned in its current state. Refresh and review the latest recommendation.";
+    case "SNAPSHOT_STALE":
+    case "DATA_STALE":
+      return "The network changed during review. Wait for a fresh recommendation before sending.";
+    default:
+      if (responseStatus >= 500) {
+        return "The service couldn’t complete that request. Refresh and check the plan status before retrying.";
+      }
+      return "The request couldn’t be completed. Refresh and check the plan status before retrying.";
+  }
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -108,23 +192,28 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    let message = "We couldn’t complete that decision. Please try again.";
+    let body: unknown;
     try {
-      const body = (await response.json()) as {
-        detail?: { message?: string } | string;
-      };
-      if (typeof body.detail === "object" && body.detail?.message) {
-        message = body.detail.message;
-      } else if (typeof body.detail === "string") {
-        message = body.detail;
-      }
+      body = await response.json();
     } catch {
-      // Keep the plain operator-facing fallback for non-JSON gateway errors.
+      // Keep the safe, operator-facing message for non-JSON gateway errors.
     }
-    throw new Error(message);
+    throw new Error(safeErrorMessage(response.status, body));
   }
 
   return (await response.json()) as T;
+}
+
+export function intelligenceRequest<T>(path: string, body?: object) {
+  return request<T>(
+    path,
+    body
+      ? {
+          method: "POST",
+          body: JSON.stringify(body),
+        }
+      : undefined,
+  );
 }
 
 export function fetchCurrentPlan() {
@@ -136,22 +225,22 @@ export function fetchIntelligenceStatus() {
 }
 
 export function approvePlan(planId: string, operator: string) {
-  return request<DecisionPlan>(`/plans/${encodeURIComponent(planId)}/approve`, {
-    method: "POST",
-    body: JSON.stringify({ operator }),
-  });
+  return intelligenceRequest<DecisionPlan>(
+    `/plans/${encodeURIComponent(planId)}/approve`,
+    { operator },
+  );
 }
 
 export function executePlan(planId: string, operator: string) {
-  return request<DecisionPlan>(`/plans/${encodeURIComponent(planId)}/execute`, {
-    method: "POST",
-    body: JSON.stringify({ operator }),
-  });
+  return intelligenceRequest<DecisionPlan>(
+    `/plans/${encodeURIComponent(planId)}/execute`,
+    { operator },
+  );
 }
 
 export function rejectPlan(planId: string, operator: string) {
-  return request<DecisionPlan>(`/plans/${encodeURIComponent(planId)}/reject`, {
-    method: "POST",
-    body: JSON.stringify({ operator }),
-  });
+  return intelligenceRequest<DecisionPlan>(
+    `/plans/${encodeURIComponent(planId)}/reject`,
+    { operator },
+  );
 }
