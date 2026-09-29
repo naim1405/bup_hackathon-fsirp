@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -8,6 +9,7 @@ export type RealtimeStatus =
   "connecting" | "connected" | "reconnecting" | "polling";
 
 export function useRealtimeUpdates(queryClient: QueryClient): RealtimeStatus {
+  const router = useRouter();
   const url = process.env.NEXT_PUBLIC_BACKEND_WS_URL;
   const [status, setStatus] = useState<RealtimeStatus>(() =>
     url ? "connecting" : "polling",
@@ -57,6 +59,10 @@ export function useRealtimeUpdates(queryClient: QueryClient): RealtimeStatus {
                     ? event.message
                     : "A recommendation is ready for review.",
                 duration: 10_000,
+                action: {
+                  label: "Review actions",
+                  onClick: () => router.push("/intelligence#operator-actions"),
+                },
               },
             );
             refreshDashboard();
@@ -84,7 +90,7 @@ export function useRealtimeUpdates(queryClient: QueryClient): RealtimeStatus {
       if (retryTimer !== undefined) window.clearTimeout(retryTimer);
       socket?.close();
     };
-  }, [queryClient, url]);
+  }, [queryClient, url, router]);
 
   return status;
 }

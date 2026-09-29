@@ -19,6 +19,7 @@ export function Predictions({ data }: { data: Prediction }) {
                 "Projected unmet demand",
                 "First unmet demand",
                 "Confidence",
+                "Operator action",
               ].map((h) => (
                 <th key={h} className="p-3 text-xs text-slate-500">
                   {h}
@@ -68,6 +69,14 @@ export function Predictions({ data }: { data: Prediction }) {
                       : "Unknown"}
                   </td>
                   <td className="p-3">{human(f.confidence)}</td>
+                  <td className="p-3">
+                    <a
+                      href="#operator-actions"
+                      className="inline-flex rounded-lg bg-emerald-700 px-3 py-2 text-xs font-medium whitespace-nowrap text-white hover:bg-emerald-800"
+                    >
+                      Review actions
+                    </a>
+                  </td>
                 </tr>
               );
             })}

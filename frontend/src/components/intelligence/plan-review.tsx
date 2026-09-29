@@ -5,11 +5,13 @@ export function PlanReview({
   plan,
   disabled,
   executionEnabled,
+  disabledReason,
   onAction,
 }: {
   plan: Plan;
   disabled: boolean;
   executionEnabled: boolean;
+  disabledReason?: string;
   onAction: (action: "approve" | "reject" | "execute", plan: Plan) => void;
 }) {
   return (
@@ -55,6 +57,38 @@ export function PlanReview({
           </Button>
         </div>
       </div>
+      {disabledReason && (
+        <p
+          role="status"
+          className="mb-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900"
+        >
+          {disabledReason}
+        </p>
+      )}
+      {!plan.recommendations.length && (
+        <p className="mb-3 text-sm text-slate-600">
+          This plan contains no shipments to approve or execute. Review the
+          reasons below or use Run analysis now to generate a fresh plan.
+        </p>
+      )}
+      {!!plan.recommendations.length && plan.status === "draft" && (
+        <p className="mb-3 text-sm text-emerald-800">
+          Decision needed: choose Approve plan or Reject. Your operator ID is
+          requested before submitting.
+        </p>
+      )}
+      {plan.status === "approved" && (
+        <p className="mb-3 text-sm text-emerald-800">
+          Plan approved. Choose Execute approved plan to submit the shipments
+          when execution is enabled.
+        </p>
+      )}
+      {!["draft", "approved"].includes(plan.status) && (
+        <p className="mb-3 text-sm text-slate-600">
+          This plan is {human(plan.status)}. Use Run analysis now to get a new
+          plan; already submitted shipments cannot be resubmitted here.
+        </p>
+      )}
       <p className="mb-4 text-xs text-slate-500">
         Approval records your decision; execution separately submits shipments.{" "}
         {!executionEnabled &&

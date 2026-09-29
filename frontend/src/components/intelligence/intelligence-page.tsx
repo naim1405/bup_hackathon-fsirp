@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { Dialog } from "radix-ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   intelligenceRequest,
@@ -51,10 +52,11 @@ export function IntelligencePage() {
       intelligenceRequest<unknown>(path, body),
     onSuccess: (data, variables) => {
       const plan = data as Partial<Plan> | null;
-      if (plan?.plan_id) {
+      if (plan?.plan_id && plan.status && Array.isArray(plan.recommendations)) {
         setReviewedId(plan.plan_id);
         client.setQueryData(["intelligence", "plan", plan.plan_id], plan);
       }
+      if (variables.path === "/run") setReviewedId(null);
       setFeedback(
         plan?.status
           ? `Plan ${human(plan.status)}${plan.rejection_reason && plan.rejection_reason !== "none" ? `: ${human(plan.rejection_reason)}` : ""}. Review warnings and shipment outcomes below.`
@@ -80,8 +82,7 @@ export function IntelligencePage() {
   const plan = planQuery.data;
   const identity = operator.trim();
   const busy = mutation.isPending;
-  const canAct =
-    !!identity && !busy && !planQuery.isError && !planQuery.isFetching;
+  const canAct = !busy && !confirmation && !planQuery.isError;
   const errors = [
     { name: "Engine status", q: status },
     { name: "Predictions", q: prediction },
@@ -172,107 +173,166 @@ export function IntelligencePage() {
           {feedback}
         </p>
       )}
-      {prediction.isPending ? (
-        <p role="status">Loading predictions…</p>
-      ) : (
-        prediction.data && <Predictions data={prediction.data} />
-      )}
-      <Panel title="Operator identity">
-        <p className="mb-4 text-sm text-slate-500">
-          Enter your operator ID for the decision audit trail. This identifies
-          the decision; it is not a sign-in.
-        </p>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="text-sm">
-            Operator ID{" "}
-            <input
-              maxLength={120}
-              value={operator}
-              onChange={(e) => setOperator(e.target.value)}
-              className="mt-2 block w-full rounded-lg border border-slate-300 p-3"
-              placeholder="Your name or operator ID"
-            />
-          </label>
-          <label className="text-sm">
-            Alert acknowledgement comment (optional)
-            <input
-              maxLength={500}
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              className="mt-2 block w-full rounded-lg border border-slate-300 p-3"
-            />
-          </label>
-        </div>
-      </Panel>
-      {reviewedId && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-blue-50 p-4 text-sm text-blue-900">
-          <span>
-            Showing your reviewed plan. New recommendations will not replace it
-            automatically.
-          </span>
-          <Button
-            variant="outline"
-            disabled={busy || !!confirmation}
-            onClick={() => setReviewedId(null)}
-          >
-            View latest recommendations
-          </Button>
-        </div>
-      )}
-      {planQuery.isPending ? (
-        <p role="status">Loading recommendations…</p>
-      ) : (
-        plan && (
+      <div id="operator-actions" className="scroll-mt-28 space-y-5">
+        <Panel title="Operator actions">
+          <p className="mb-3 font-medium text-emerald-800">
+            1. Review the plan → 2. Approve or reject → 3. Execute approved
+            shipments
+          </p>
+          <p className="mb-4 text-sm text-slate-500">
+            Enter your operator ID for the decision audit trail. This identifies
+            the decision; it is not a sign-in.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="text-sm">
+              Operator ID{" "}
+              <input
+                id="operator-id"
+                maxLength={120}
+                value={operator}
+                onChange={(e) => setOperator(e.target.value)}
+                className="mt-2 block w-full rounded-lg border border-slate-300 p-3"
+                placeholder="Your name or operator ID"
+              />
+            </label>
+            <label className="text-sm">
+              Alert acknowledgement comment (optional)
+              <input
+                maxLength={500}
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                className="mt-2 block w-full rounded-lg border border-slate-300 p-3"
+              />
+            </label>
+          </div>
+        </Panel>
+        {reviewedId && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-blue-50 p-4 text-sm text-blue-900">
+            <span>
+              Showing your reviewed plan. New recommendations will not replace
+              it automatically.
+            </span>
+            <Button
+              variant="outline"
+              disabled={busy || !!confirmation}
+              onClick={() => setReviewedId(null)}
+            >
+              View latest recommendations
+            </Button>
+          </div>
+        )}
+        {planQuery.isPending ? (
+          <p role="status">Loading recommendations…</p>
+        ) : plan ? (
           <PlanReview
             plan={plan}
             disabled={!canAct}
+            disabledReason={
+              busy
+                ? "An action is being submitted."
+                : confirmation
+                  ? "Complete or cancel the open confirmation first."
+                  : planQuery.isError
+                    ? "Refresh the plan to verify its current status before acting."
+                    : undefined
+            }
             executionEnabled={
               !!status.data?.execution_enabled && !status.isError
             }
             onAction={(action, plan) => setConfirmation({ action, plan })}
           />
-        )
-      )}
-      {confirmation && (
-        <Panel title={`Confirm ${confirmation.action}`}>
-          <p className="text-sm">
-            You are about to {confirmation.action} plan{" "}
-            <b className="break-all">{confirmation.plan.plan_id}</b> from tick{" "}
-            {confirmation.plan.as_of_tick}, containing{" "}
-            {confirmation.plan.recommendations.length} shipments, as{" "}
-            <b>{identity || "(operator ID required)"}</b>.{" "}
-            {confirmation.action === "execute"
-              ? "This submits fuel allocations to the simulator. The backend revalidates safety and plan freshness."
-              : "This does not submit shipments."}
-          </p>
-          <div className="mt-4 flex gap-3">
+        ) : (
+          <Panel title="Recommended action plan">
+            <p className="mb-3 text-sm text-slate-600">
+              No plan is available to review. Generate recommendations to see
+              the shipments you can approve, reject, or execute.
+            </p>
             <Button
-              disabled={
-                busy ||
-                !identity ||
-                (confirmation.action === "execute" &&
-                  (!status.data?.execution_enabled || status.isError))
-              }
-              onClick={() =>
-                mutation.mutate({
-                  path: `/plans/${encodeURIComponent(confirmation.plan.plan_id)}/${confirmation.action}`,
-                  body: { operator: identity },
-                })
-              }
-            >
-              {busy ? "Submitting…" : `Confirm ${confirmation.action}`}
-            </Button>
-            <Button
-              variant="outline"
               disabled={busy}
-              onClick={() => setConfirmation(null)}
+              onClick={() =>
+                mutation.mutate({ path: "/run", body: { force: true } })
+              }
             >
-              Cancel
+              Generate recommendations
             </Button>
-          </div>
-        </Panel>
-      )}
+          </Panel>
+        )}
+      </div>
+      <Dialog.Root
+        open={!!confirmation}
+        onOpenChange={(open) => {
+          if (!open && !busy) setConfirmation(null);
+        }}
+      >
+        {confirmation && (
+          <Dialog.Portal>
+            <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
+            <Dialog.Content className="fixed top-1/2 left-1/2 z-50 max-h-[90vh] w-[calc(100%_-_2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-white p-6 text-slate-900 shadow-xl">
+              <Dialog.Title className="mb-3 text-lg font-semibold">
+                Confirm {confirmation.action}
+              </Dialog.Title>
+              <Dialog.Description className="mb-4 text-sm text-slate-500">
+                Review this decision before submitting. Execution is a separate
+                action from approval.
+              </Dialog.Description>
+              <label className="mb-4 block text-sm font-medium">
+                Operator ID (required)
+                <input
+                  autoFocus
+                  maxLength={120}
+                  value={operator}
+                  onChange={(e) => setOperator(e.target.value)}
+                  placeholder="Your name or operator ID"
+                  className="mt-2 block w-full rounded-lg border border-slate-300 p-3"
+                />
+              </label>
+              <p className="text-sm">
+                You are about to {confirmation.action} plan{" "}
+                <b className="break-all">{confirmation.plan.plan_id}</b> from
+                tick {confirmation.plan.as_of_tick}, containing{" "}
+                {confirmation.plan.recommendations.length} shipments, as{" "}
+                <b>{identity || "(operator ID required)"}</b>.{" "}
+                {confirmation.action === "execute"
+                  ? "This submits fuel allocations to the simulator. The backend revalidates safety and plan freshness."
+                  : "This does not submit shipments."}
+              </p>
+              <div className="mt-4 flex gap-3">
+                <Button
+                  disabled={
+                    busy ||
+                    planQuery.isError ||
+                    !identity ||
+                    (confirmation.action === "execute" &&
+                      (!status.data?.execution_enabled || status.isError))
+                  }
+                  onClick={() =>
+                    mutation.mutate({
+                      path: `/plans/${encodeURIComponent(confirmation.plan.plan_id)}/${confirmation.action}`,
+                      body: { operator: identity },
+                    })
+                  }
+                >
+                  {busy ? "Submitting…" : `Confirm ${confirmation.action}`}
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => setConfirmation(null)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </Dialog.Content>
+          </Dialog.Portal>
+        )}
+      </Dialog.Root>
       <Panel title="Risk alerts">
+        {!identity && (
+          <p className="mb-3 text-sm text-amber-800">
+            Enter your Operator ID above to acknowledge alerts. Plan decisions
+            will also ask for your ID before confirmation.
+          </p>
+        )}
         {alerts.isPending && <p>Loading alerts…</p>}
         {alerts.data?.length === 0 && (
           <p className="text-sm text-slate-500">No alerts recorded.</p>
@@ -320,6 +380,11 @@ export function IntelligencePage() {
           ))}
         </div>
       </Panel>
+      {prediction.isPending ? (
+        <p role="status">Loading predictions…</p>
+      ) : (
+        prediction.data && <Predictions data={prediction.data} />
+      )}
     </div>
   );
 }
