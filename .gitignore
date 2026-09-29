@@ -15,3 +15,10 @@ venv/
 .DS_Store
 .idea/
 .vscode/
+
+# Monitoring credentials and generated validation artifacts
+deploy/site24x7/fsirp/token
+load-tests/results/
+/pdf/
+
+/pdf

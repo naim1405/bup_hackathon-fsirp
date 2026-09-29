@@ -10,6 +10,7 @@ from typing import Any, Literal
 import httpx
 from fastapi import HTTPException, Response
 from pydantic import TypeAdapter, ValidationError
+from app.telemetry import event, telemetry
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,33 @@ class SimulatorClient:
         method: Literal["GET", "POST"],
         path: str,
         adapter: TypeAdapter[Any],
+        **kwargs: Any,
+    ) -> ValidatedSimulatorResult:
+        telemetry.increment("simulator_requests_total")
+        try:
+            result = await self._request_once(method, path, adapter, **kwargs)
+        except HTTPException as exc:
+            code = exc.detail.get("code", "SIMULATOR_REQUEST_FAILED")
+            telemetry.increment("simulator_errors_total")
+            if code == "INVALID_SIMULATOR_RESPONSE":
+                telemetry.increment("simulator_invalid_total")
+            if code == "SIMULATOR_TIMEOUT":
+                telemetry.increment("simulator_timeouts_total")
+            event("simulator_failure", method=method, code=code, status=exc.status_code)
+            raise
+        if result.stale:
+            telemetry.increment("simulator_stale_total")
+            event("simulator_stale", method=method)
+        if method == "POST":
+            telemetry.increment("commands_succeeded_total")
+            event("simulator_command", status=result.status_code)
+        return result
+
+    async def _request_once(
+        self,
+        method: Literal["GET", "POST"],
+        path: str,
+        adapter: TypeAdapter[Any],
         *,
         params: dict[str, Any] | None = None,
         json_body: dict[str, Any] | None = None,
@@ -97,7 +125,7 @@ class SimulatorClient:
         try:
             data = adapter.validate_python(payload)
         except ValidationError as exc:
-            logger.warning("Simulator response failed validation for %s: %s", path, exc)
+            logger.warning("Simulator response failed schema validation")
             errors = [
                 {
                     "loc": list(error["loc"]),

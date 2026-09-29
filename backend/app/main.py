@@ -12,6 +12,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.dashboard import router as dashboard_router
 from app.operations import router as operations_router
+from app.observability import router as observability_router
+from app.telemetry import ObservabilityMiddleware
 from app.simulator.client import SimulatorClient
 from app.simulator.config import SIMULATOR_BASE_URL, SIMULATOR_TIMEOUT_SECONDS
 from app.simulator.routes import router as simulator_router
@@ -63,6 +65,8 @@ app.add_middleware(
 app.include_router(simulator_router)
 app.include_router(dashboard_router)
 app.include_router(operations_router)
+app.include_router(observability_router)
+app.add_middleware(ObservabilityMiddleware)
 
 
 @app.get("/", tags=["meta"], summary="API information")

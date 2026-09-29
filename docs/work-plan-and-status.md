@@ -97,6 +97,10 @@ Owners are roles; assign actual names in the team. Keep deployment/observability
 
 ### P2 — Resilience, observability, and load test (DevOps/reliability owner)
 
+Implemented on `feature/observability`: structured request/failure/recovery logs, bounded process-local metrics with token protection, validated dependency status, a polling frontend health panel, Site24x7 collection plugin, and k6 dashboard workload. See [setup and remaining acceptance gates](../deploy/observability.md). Existing partial-result degradation is instrumented; writes are not automatically retried. Simulator simulation timestamps accept naive and aware values without inventing a timezone. Live Site24x7 setup, VPS/Vercel validation and performance evidence remain pending. Engine telemetry remains blocked on integrating the separate intelligence implementation; it is not claimed complete here.
+
+Local verification (2026-09-29): backend/plugin tests passed; published simulator 1.0.0 returned healthy dependency status and a complete/fresh snapshot. Injected unavailable and stale-data faults each produced liveness 200, dependency 503, then healthy recovery. k6 local smoke: 2 users, 30 seconds, 54 complete/fresh responses, 0 HTTP failures, 1.78 requests/second, average 122.49 ms, p50 110.53 ms, p95 187.05 ms, p99 202.30 ms. Runner and services shared Docker Desktop: these are not VPS capacity results, and resource peaks were not captured. Frontend lint, generated-route typecheck, changed-file formatting and production build passed. Whole-tree formatting flags 27 untouched files. Browser visual verification and live provider setup remain pending.
+
 1. Add bounded timeout/retry/backoff and degraded cached read behavior where justified; never submit an action from stale state.
 2. Instrument backend request count/latency/error, simulator reachability, stale-data detection, stream reconnects, recommendation latency/confidence, and allocation/fallback outcomes.
 3. Expose component health and a simple metrics/log view. Add fault-injection runbook.

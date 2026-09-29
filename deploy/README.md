@@ -1,5 +1,7 @@
 # Deployment options
 
+For monitoring and judging evidence, follow [Observability setup](observability.md).
+
 The project now has **standalone Dockerfiles for both applications** and a root Compose file. Use the same container build for the hackathon's reproducible all-in-one launch or deploy the backend and frontend separately.
 
 ## Option A — one-command complete stack (hackathon/local)

@@ -25,6 +25,7 @@ from app.simulator.models import (
     SupplyArrival,
 )
 from app.simulator.routes import get_simulator_client
+from app.telemetry import event, telemetry
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
 
@@ -147,6 +148,9 @@ async def dashboard_snapshot(
     consistent = before_tick is not None and after_tick is not None and before_tick == after_tick
     unavailable = any(status.status == "unavailable" for status in statuses.values())
     stale = any(status.status == "stale" for status in statuses.values())
+    if unavailable or stale:
+        telemetry.increment("dashboard_degraded_total")
+        event("dashboard_degraded", unavailable=unavailable, stale=stale)
     if stale:
         response.headers["X-Simulator-Stale"] = "true"
 
