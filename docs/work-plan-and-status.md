@@ -36,12 +36,14 @@ The `main` branch has these implementation milestones:
 
 #### Containers / deployment
 
+- Option B automation added locally: GitHub Actions tests/builds the backend and deploys exact source releases over verified SSH on `main`; Vercel native Git integration handles frontend pushes independently. See `deploy/README.md` for VPS provisioning, production secrets, domain selection, and activation. Remote deployment and end-to-end validation remain pending.
+
 - `backend/Dockerfile`: Python 3.12 slim, non-root FastAPI image, liveness health check.
 - `frontend/Dockerfile`: multi-stage Node 20 Alpine image with Next standalone output, non-root runtime, HTTP health check.
 - Root `docker-compose.yml`: simulator, backend, and frontend with health-gated dependencies. Default bind addresses keep simulator/admin and backend ports on loopback.
 - `deploy/README.md`: one-command full stack and split VPS backend + Vercel frontend instructions; `deploy/Caddyfile.example` and Compose env sample included.
 - Verified: Compose YAML parses; Next standalone build and proxy smoke test succeeded; regular Vercel-mode `npm run build` succeeded.
-- Not verified: actual Docker image/Compose build against a Docker daemon. Docker CLI/daemon was unavailable in the authoring environment; run the documented Docker-host verification before relying on it at judging.
+- Option B validation: backend Docker image build, Compose configuration validation, and deployment shell syntax passed locally. Full Compose startup and remote VPS/Vercel deployment remain unverified.
 
 ### Not implemented yet
 
@@ -51,7 +53,7 @@ The `main` branch has these implementation milestones:
 - Frontend REST/SSE data hooks, dashboard, alerts, and recommendation review UI.
 - Operator approval, allocation submission (`POST /v1/allocations`), or cancellation workflow.
 - Application database, recommendation audit history, or policy versioning.
-- Docker-host validation of the Dockerfiles/Compose stack, CI, metrics dashboards, load-test results, or final demo evidence.
+- Docker-host validation of the Dockerfiles/Compose stack, a successful remote CI/CD run, metrics dashboards, load-test results, or final demo evidence.
 
 ## Recommended work order and ownership
 

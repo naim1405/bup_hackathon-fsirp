@@ -62,19 +62,89 @@ This is the recommended split deployment when you want Vercel hosting for the UI
    - Simulator/admin: `127.0.0.1:8000` — keep private.
    - FastAPI: `127.0.0.1:8001` — put a TLS reverse proxy in front if it must be reachable from Vercel.
 4. Configure a domain and HTTPS reverse proxy, such as Caddy. A minimal example is in [`Caddyfile.example`](Caddyfile.example). Set your firewall so only the proxy's public HTTPS port is exposed; do not expose port 8000 or the simulator `/admin` UI.
-5. Verify `https://api.example.com/api/v1/health` and `https://api.example.com/api/v1/simulator/instance` from outside the VPS. Backend health can be healthy even if the simulator is not; test the simulator route separately.
+5. Verify `https://hackathon.bebsapati.com/api/v1/health` and `https://hackathon.bebsapati.com/api/v1/simulator/instance` from outside the VPS. Backend health can be healthy even if the simulator is not; test the simulator route separately.
 
 ### On Vercel
 
 1. Import the same GitHub repository and set **Root Directory** to `frontend`.
 2. Use `npm ci` for install and `npm run build` for build (Vercel's Next.js preset usually detects these automatically).
-3. Set the server-side environment variable `BACKEND_API_URL` to the public HTTPS API origin, e.g. `https://api.example.com`. Configure it for Production and Preview separately as appropriate.
+3. Set the server-side environment variable `BACKEND_API_URL` to `https://hackathon.bebsapati.com`. Configure it for Production and Preview separately as appropriate.
 4. Redeploy after changing this value. The Next.js rewrite destination is generated from `next.config.ts` at build time; changing only a runtime variable is not enough for an already-built deployment.
 5. From the browser, keep calling relative paths such as `/api/backend/v1/simulator/instance`. Vercel's Next.js layer performs the server-to-server rewrite to the VPS API; do not put the VPS URL in a `NEXT_PUBLIC_*` variable or fetch it directly from browser code.
 
 The backend currently exposes read-only simulator data and has no application authentication. A public API origin is therefore reachable by anyone who knows the URL. Apply appropriate rate limits/access controls for the event environment. **Before adding allocation writes, require authenticated/authorized operator approval and protect action routes**; a public Next.js rewrite alone is not authorization.
 
 Vercel and other serverless gateways may impose connection-duration/idle limits on long-lived responses. Validate the SSE route through the actual Vercel deployment. If the provider closes or buffers the stream, use a streaming-capable route handler/runtime or host the frontend container beside FastAPI behind a reverse proxy (the Caddy example disables proxy buffering for streams). Keep REST refetch/reconnect behavior as the fallback because REST remains the source of truth.
+
+### Automatic deployment from GitHub main
+
+The repository includes `.github/workflows/backend-deploy.yml`. Pull requests run backend tests, Compose validation, shell syntax checks, and a backend image build. Pushes to `main` run the same checks, then upload that exact commit's source over verified SSH and deploy the backend. No GitHub repository credentials are needed on the VPS.
+
+Vercel's native Git integration deploys the frontend independently on `main` pushes. It does **not** wait for this backend workflow. Keep frontend/backend changes backward-compatible; use branch protection to require passing pull-request checks before merging. No Vercel token or second frontend deployment workflow is needed.
+
+#### 1. Prepare the VPS once
+
+Target VPS: `167.99.226.149`. These commands assume an Ubuntu/Debian VPS with Docker Engine, Compose v2 supporting `--wait`, Bash, curl, and flock installed. Run them from an existing administrator SSH session; do not overwrite an existing SSH or reverse-proxy configuration.
+
+```bash
+sudo adduser --disabled-password --gecos '' deploy
+sudo usermod -aG docker deploy
+sudo install -d -o deploy -g deploy -m 750 /opt/fsirp /opt/fsirp/releases
+sudo install -d -o deploy -g deploy -m 700 /home/deploy/.ssh
+```
+
+If the user already exists, skip `adduser`. Docker group membership effectively grants root access: use a dedicated deployment key and protect the GitHub production environment. New group membership requires a new login.
+
+Generate a dedicated Ed25519 key on your trusted local machine with `ssh-keygen -t ed25519 -f ~/.ssh/fsirp_deploy`. For unattended CI, use no passphrase for this dedicated key. Append **only the public key** to `/home/deploy/.ssh/authorized_keys`, set ownership to `deploy:deploy` and permissions to `600`. Never commit either private keys or environment files.
+
+Copy the contents of `deploy/compose.env.example` into `/opt/fsirp/.env` on the VPS. Keep simulator and backend bind addresses at `127.0.0.1`; keep the simulator paused initially. Make this file owned by `deploy` with mode `600`. `BACKEND_API_URL` in this file is unused when deploying only the backend; Vercel has its own value.
+
+Allow your SSH access and public TCP ports 80/443 for the HTTPS proxy; do not expose ports 8000/8001. Before changing a firewall, preserve your existing SSH rule and inspect other hosted services.
+
+#### 2. Configure GitHub secrets
+
+Open this repository in GitHub: **Settings -> Environments -> New environment -> production**. Restrict deployment branches to `main`. Required reviewer approval is optional; enabling it makes deployments wait for approval rather than fully automatic.
+
+Add these environment secrets:
+
+- `VPS_HOST`: `167.99.226.149`
+- `VPS_USER`: `deploy`
+- `VPS_SSH_KEY`: complete contents of the dedicated private key, including BEGIN/END lines.
+- `VPS_KNOWN_HOSTS`: verified SSH known-hosts entry for `167.99.226.149` (the workflow uses SSH port 22).
+
+To verify the host key, run `sudo ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` in the provider's trusted VPS console. On your local machine, obtain the candidate entry with `ssh-keyscan -t ed25519 167.99.226.149`, save it to a temporary file, and compare its `ssh-keygen -lf` fingerprint with the console output. Only store the entry after they match. Do not blindly trust a scanned key or disable host-key checking.
+
+#### 3. Set up HTTPS for the VPS API
+
+The chosen split is **VPS API at `https://hackathon.bebsapati.com`**, with the frontend on its Vercel-assigned `vercel.app` domain.
+
+- Set the DNS A record for `hackathon.bebsapati.com` to `167.99.226.149`; do not attach this hostname to Vercel.
+- `deploy/Caddyfile.example` already uses this API hostname. Set Vercel's `BACKEND_API_URL` to `https://hackathon.bebsapati.com`.
+
+Install Caddy using its official instructions, merge the example site block into the existing host Caddy configuration, validate it with `sudo caddy validate --config /etc/caddy/Caddyfile`, then reload with `sudo systemctl reload caddy`. Do not replace unrelated site blocks. Caddy must run on the host for the example's `127.0.0.1:8001` upstream to work. Remove conflicting AAAA records if this VPS is not serving the chosen hostname over IPv6.
+
+#### 4. Connect Vercel once
+
+In Vercel, **Add New -> Project -> Import Git Repository**, select `naim1405/bup_hackathon-fsirp`, and set:
+
+- Framework: Next.js; Root Directory: `frontend`.
+- Install command: `npm ci`; Build command: `npm run build`.
+- Production branch: `main` (verify under project Git/environment settings).
+- Environment variable: `BACKEND_API_URL` = `https://hackathon.bebsapati.com`, with no `/api` suffix. Set Production; optionally configure Preview to use an appropriate backend too.
+
+Do not set `DOCKER_BUILD=1` on Vercel. Deploy/redeploy after configuring the variable because the rewrite target is built into the output. Browser code continues to use `/api/backend/...` unchanged.
+
+#### 5. Activate and verify
+
+Commit and push these files when ready. The first `main` push deploys the VPS backend after checks pass; alternatively run **Actions -> Backend CI and VPS deployment -> Run workflow**, selecting `main`, once the workflow is committed there.
+
+- Confirm GitHub's deploy job passes both backend health and simulator-instance smoke checks.
+- Check the same two routes through the public HTTPS backend origin; the SSH smoke test does not prove DNS/TLS works.
+- Check `/api/backend/v1/simulator/instance` through the deployed Vercel frontend and exercise its SSE route separately.
+
+Each backend release is stored under `/opt/fsirp/releases/`. The script serializes deployments, builds before replacing the backend, and starts the simulator with `--no-recreate`. Normal backend deployments must not reset simulator history. Simulator configuration/image changes require a separately planned restart; the script deliberately does not apply them to an existing simulator.
+
+Backend replacement may briefly interrupt requests/SSE. A failed post-deployment health check fails the workflow but does not automatically roll back; inspect container logs and redeploy a known-good source commit via a reviewed revert on `main`. Release archives are retained for diagnosis; monitor disk usage and remove obsolete releases only deliberately. No `docker compose down`, volume deletion, or simulator reset is part of CI/CD.
 
 ## Option C — both services in containers on the VPS
 
@@ -85,5 +155,5 @@ If you do not want Vercel, run all Compose services on a single VPS and place a 
 - `backend/Dockerfile` uses Python 3.12 slim, installs runtime requirements, runs Uvicorn as a non-root user, and has a liveness check.
 - `frontend/Dockerfile` uses a multi-stage Node 20 Alpine build and Next.js standalone output, runs as non-root, and has an HTTP health check.
 - Standalone output is enabled for Docker builds only (`DOCKER_BUILD=1`); Vercel uses its native Next adapter.
-- Docker was not available in the coding environment when these files were authored. Run `docker compose config` and `docker compose up --build` on a Docker host before relying on the images for judging.
+- Local validation for Option B: `docker compose config --quiet`, deployment script shell syntax, and the backend Docker image build passed. The full Compose stack and remote GitHub/VPS/Vercel deployment still require end-to-end validation.
 - The current backend test suite and frontend lint/typecheck/build do not replace a real end-to-end check against the published simulator image.

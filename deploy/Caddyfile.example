@@ -1,6 +1,6 @@
-# Replace api.example.com with a domain whose DNS points to this VPS.
+# Point hackathon.bebsapati.com to VPS 167.99.226.149.
 # Caddy obtains and renews TLS certificates automatically.
-api.example.com {
+hackathon.bebsapati.com {
     encode zstd gzip
     reverse_proxy 127.0.0.1:8001 {
         # Flush streaming responses such as the SSE endpoint without buffering.
