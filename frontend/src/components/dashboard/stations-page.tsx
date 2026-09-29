@@ -1,6 +1,7 @@
 "use client";
 import { Building2, Fuel } from "lucide-react";
 import { useNetwork } from "./network-shell";
+import { StationReplenishment } from "./station-replenishment";
 import {
   EmptyState,
   isResourceUnavailable,
@@ -11,6 +12,9 @@ export function StationsPage() {
   const { snapshot, setSelectedStation } = useNetwork();
   if (!snapshot) return null;
   const stations = snapshot.stations;
+  const depots = snapshot.depots ?? [];
+  const routes = snapshot.routes ?? [];
+  const currentTick = snapshot.as_of_tick ?? snapshot.instance?.tick ?? 0;
   return (
     <>
       {" "}
@@ -36,12 +40,19 @@ export function StationsPage() {
         ) : (
           <div className="grid gap-3.5 md:grid-cols-2">
             {stations?.map((station) => (
-              <StationCard
-                key={station.id}
-                station={station}
-                regions={snapshot.regions}
-                onSelect={setSelectedStation}
-              />
+              <div key={station.id}>
+                <StationCard
+                  station={station}
+                  regions={snapshot.regions}
+                  onSelect={setSelectedStation}
+                />
+                <StationReplenishment
+                  station={station}
+                  depots={depots}
+                  routes={routes}
+                  currentTick={currentTick}
+                />
+              </div>
             ))}
           </div>
         )}

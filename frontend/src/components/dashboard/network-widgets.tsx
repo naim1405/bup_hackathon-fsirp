@@ -274,6 +274,10 @@ export function StationCard({
   onSelect: (station: Station) => void;
 }) {
   const isOpen = station.status === "OPEN";
+  const totalInventory = fuelOrder.reduce((total, fuel) => total + station.inventory[fuel], 0);
+  const totalCapacity = fuelOrder.reduce((total, fuel) => total + station.capacity[fuel], 0);
+  const isEmpty = totalInventory <= 0;
+  const isCritical = totalCapacity > 0 && totalInventory / totalCapacity <= 0.1;
 
   return (
     <button
@@ -307,7 +311,11 @@ export function StationCard({
         </Badge>
       </div>
 
-      <div className="mt-5 space-y-3.5">
+      <div className={`mt-4 rounded-xl border px-3 py-2 text-xs font-semibold ${isEmpty ? "border-red-200 bg-red-50 text-red-800" : isCritical ? "border-amber-200 bg-amber-50 text-amber-800" : "border-emerald-100 bg-emerald-50 text-emerald-800"}`}>
+        {isEmpty ? "OUT OF STOCK · 0 L on hand" : isCritical ? `LOW STOCK · ${formatLiters(totalInventory)} total` : `${formatLiters(totalInventory)} total on hand`}
+        <span className="ml-1 font-normal">of {formatLiters(totalCapacity)} capacity</span>
+      </div>
+      <div className="mt-4 space-y-3.5">
         {fuelOrder.map((fuel) => (
           <FuelBar
             key={fuel}
@@ -1140,6 +1148,12 @@ export function StationDetails({
               </SheetHeader>
             </div>
             <div className="space-y-5 p-6">
+              {fuelOrder.every((fuel) => station.inventory[fuel] <= 0) && (
+                <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+                  <p className="font-semibold">This station is out of stock.</p>
+                  <p className="mt-1">The simulator reports zero inventory for all fuels. Request a depot shipment from the Stations page; stock only changes after the simulator processes its arrival.</p>
+                </div>
+              )}
               <Card className="rounded-2xl border-slate-200 bg-white shadow-none ring-0">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm text-slate-800">
