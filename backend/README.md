@@ -59,7 +59,7 @@ Key behaviors:
 - Recommendations are validated against depot inventory/reserves, dispatch capacity, route limits, station capacity, and existing confirmed inbound. Stale or inconsistent snapshots do not authorize a plan for execution. Ambiguous outcomes are reconciled by the idempotency key against `GET /v1/allocations`; requests are never blindly retried.
 - Probabilities are explicitly marked uncalibrated; risk tiers are deterministic projections, not calibrated probabilities. Missing/unavailable values are not replaced with invented simulator state.
 
-Useful engine environment variables: `INTELLIGENCE_EXECUTION_ENABLED` (default `false`), `INTELLIGENCE_LOOP_SECONDS` (poll interval, default 5), `INTELLIGENCE_HORIZON_TICKS` (default 24), `INTELLIGENCE_DEPOT_RESERVE` (default 0.10), `INTELLIGENCE_PLAN_EXPIRY_TICKS` (default 2), and `INTELLIGENCE_LOOP_ENABLED` (set false to disable the background loop).
+Useful engine environment variables: `INTELLIGENCE_EXECUTION_ENABLED` (default `false`), `INTELLIGENCE_LOOP_SECONDS` (poll interval, default 5), `INTELLIGENCE_HORIZON_TICKS` (default 24), `INTELLIGENCE_DEPOT_RESERVE` (default 0.10), `INTELLIGENCE_PLAN_EXPIRY_TICKS` (default 960 ticks, capped by the 120-second wall-clock expiry), and `INTELLIGENCE_LOOP_ENABLED` (set false to disable the background loop).
 
 The detailed endpoint and model contract is in [`INTELLIGENCE_API.md`](INTELLIGENCE_API.md).
 

@@ -46,6 +46,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
             simulator_http,
             POLICY,
             publish_update=hub.publish_update,
+            publish_decision_required=hub.publish_decision_required,
         )
         application.state.intelligence = intelligence
         await intelligence.start_loop()
