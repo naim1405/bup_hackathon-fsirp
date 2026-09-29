@@ -1,7 +1,7 @@
 # Intelligence Engine — API & Usage Guide
 
 **Package:** `backend/app/intelligence/` (all intelligence code lives only here)
-**Integration branch:** `integration/intelligence-engine` (based on latest `main`) · Backend suite: **95 tests passing**
+**Tests:** Run the backend suite with `PYTHONPATH=. .venv/bin/pytest -q` from `backend/`.
 **Base URL:** `http://localhost:8001/api/v1/intelligence` · Swagger UI: `http://localhost:8001/docs`
 
 ---
@@ -57,7 +57,7 @@ The engine starts with the app. Within seconds of boot it bootstraps training fr
 | `INTELLIGENCE_DESIRED_COVER_TICKS` | `6` | Demand cover targeted after a delivery. |
 | `INTELLIGENCE_SAFETY_BUFFER` | `0.15` | Safety-buffer fraction of horizon demand. |
 | `INTELLIGENCE_DEPOT_RESERVE` | `0.10` | Hard reserve fraction withheld from depot stock. |
-| `INTELLIGENCE_PLAN_EXPIRY_TICKS` / `_SECONDS` | `2` / `120` | Plan expiry (first of tick-age or wall-age). |
+| `INTELLIGENCE_PLAN_EXPIRY_TICKS` / `_SECONDS` | `960` / `120` | Operator review window (first of tick-age or wall-age); submission still revalidates a fresh simulator snapshot. |
 | `INTELLIGENCE_REVALIDATE_MAX_AGE` | `20` seconds | Rejects a revalidation snapshot that is old, stale-marked, or inconsistent. |
 
 ---
@@ -343,7 +343,7 @@ curl -X POST http://localhost:8000/admin/demo/shortage \
   -H 'Content-Type: application/json' \
   -d '{"station_id":"station-mirpur","fuel_type":"DIESEL","level":300}'
 
-# 3. Alerts + a new plan appear within ~2 ticks
+# 3. Alerts + a new plan appear after the next intelligence run
 curl "http://localhost:8001/api/v1/intelligence/alerts?state=active" | jq '.[].finding.title'
 curl http://localhost:8001/api/v1/intelligence/recommendations | jq '.impact'
 
@@ -366,7 +366,9 @@ Planned events (`demand_spike`, `route_disruption`, …) injected via the simula
 ## 5. Frontend integration notes
 
 - Route everything through the existing same-origin rewrite: `/api/backend/v1/intelligence/…` (Next rewrites to FastAPI server-side). Never call `localhost` from the browser.
-- Poll `/status` (or reuse the simulator SSE tick event) and refetch `/prediction` + `/detection` + `/recommendations` when `as_of_tick` changes — payloads are already deduplicated per tick.
+- The operator dashboard fetches `/recommendations` and `/status` through the same-origin REST rewrite. When the engine creates a materially new actionable plan, FastAPI sends a `decision_required` WebSocket message; the UI refreshes REST, shows the proposed routes/quantities/rationale/impact, and prompts the operator to decide.
+- “Approve & send” requires a named operator, explicit browser confirmation, and `execution_enabled=true`; the frontend calls approve, then execute. Execution revalidates fresh simulator state and both write gates before posting allocations. “Reject” records the operator decision without sending anything. The UI displays confirmed outcomes and handles blocked/stale submissions in plain language.
+- WebSocket `update` events refresh both intelligence queries and the simulator dashboard; REST remains the source of truth. The engine suppresses repeat decision toasts while materially identical recommendations remain pending.
 - Types map 1:1 to the JSON above; the fields are stable camel-cased-URL but snake_case-body contracts produced by Pydantic models in `app/intelligence/models.py`.
 - Color by `severity` (critical/high/medium/low/info) and `risk_by_station`; always render `confidence` and the `note` fields — the judges grade explainability.
 - Operator-facing screens must suppress scenario/run IDs, seeds, raw tick counters, raw error codes, simulator payloads, and developer-only diagnostics. Translate healthy/degraded/disabled, stale, rejected, and unknown-outcome states into plain language; do not render raw backend details.
@@ -375,7 +377,7 @@ Planned events (`demand_spike`, `route_disruption`, …) injected via the simula
 
 - **No automatic writes.** GET endpoints and the background loop never mutate the simulator. Execution requires explicit approval and both write switches; both default to disabled. The flags are not a substitute for authentication.
 - **Idempotent by key.** Same logical transfer ⇒ same `idempotency_key`, safe replay, conflict detection on body mismatch.
-- **Fresh-state submission.** Plans expire (2 ticks / 120 s) and are re-validated against a fresh snapshot at execution time.
+- **Fresh-state submission.** Plans expire after 960 simulator ticks or 120 seconds (whichever comes first) by default, giving operators time to review; every submission is still re-validated against a fresh snapshot at execution time.
 - **Fallbacks.** If training/bootstrap fails, the engine runs on documented priors with `fallback_active: true`; if planning fails, you get an explicit `NO_ACTION` plan, never an empty success; stale data produces `DATA_STALE` findings and a `degraded` status.
 - **Uncertainty is labeled, not invented.** Bounds are empirical prequential quantiles; where data is thin the engine says `cold_start_prior`/`low` confidence instead of pretending precision.
 - **Heuristic, not optimal.** The allocator is a deterministic greedy policy; it claims feasibility and explainability, never global optimality.

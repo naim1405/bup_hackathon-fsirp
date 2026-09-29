@@ -39,7 +39,7 @@ class WebSocketUpdateHub:
         async with self._lock:
             self._connections.discard(websocket)
 
-    async def _broadcast(self, event: dict[str, str]) -> int:
+    async def _broadcast(self, event: dict[str, object]) -> int:
         """Send a small event to all connected browsers and return deliveries."""
         async with self._lock:
             connections = tuple(self._connections)
@@ -59,16 +59,32 @@ class WebSocketUpdateHub:
         """Tell clients that simulator-backed REST state may have changed."""
         await self._broadcast({"type": "update"})
 
-    async def publish_decision_required(self) -> int:
-        """Send a user-facing prompt to review a pending intelligence decision."""
-        return await self._broadcast(
-            {
-                "type": "decision_required",
-                "title": "Decision needed",
-                "message": "A recommendation is ready for review. Please review it before approving or rejecting the plan.",
-                "source": "manual_test",
-            }
-        )
+    async def publish_decision_required(
+        self,
+        plan_id: str | None = None,
+        recommendation_count: int = 0,
+    ) -> int:
+        """Prompt connected operators to review a real or test decision."""
+        is_test = plan_id is None
+        if is_test:
+            message = "This is a test. Open the dashboard and review the latest recommendation."
+        else:
+            label = "delivery" if recommendation_count == 1 else "deliveries"
+            message = (
+                f"The intelligence engine prepared {recommendation_count} proposed "
+                f"{label}. Review the plan before approving or rejecting it."
+            )
+
+        event: dict[str, object] = {
+            "type": "decision_required",
+            "title": "Decision needed",
+            "message": message,
+            "source": "manual_test" if is_test else "intelligence",
+        }
+        if plan_id is not None:
+            event["plan_id"] = plan_id
+            event["recommendation_count"] = recommendation_count
+        return await self._broadcast(event)
 
 
 @router.post(
@@ -93,7 +109,7 @@ async def test_decision_notification(request: Request) -> dict[str, object]:
         "status": "sent",
         "type": "decision_required",
         "connected_clients": delivered,
-        "message": "A recommendation is ready for review.",
+        "message": "This is a test. Open the dashboard and review the latest recommendation.",
     }
 
 

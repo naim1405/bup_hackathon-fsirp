@@ -26,6 +26,17 @@ async def get_engine(request: Request) -> IntelligenceEngine:
 router = APIRouter(prefix="/api/v1/intelligence", tags=["intelligence"])
 
 
+async def _publish_dashboard_refresh(request: Request) -> None:
+    """Best-effort refresh for other operator dashboards after a decision."""
+    hub = getattr(request.app.state, "websocket_update_hub", None)
+    if hub is None:
+        return
+    try:
+        await hub.publish_update()
+    except Exception:  # notification delivery must not fail the operator action
+        pass
+
+
 class RunRequest(BaseModel):
     force: bool = Field(
         default=False,
@@ -162,6 +173,7 @@ async def run(
 async def approve(
     plan_id: str,
     body: OperatorRequest,
+    request: Request,
     engine: Annotated[IntelligenceEngine, Depends(get_engine)],
 ) -> Any:
     try:
@@ -170,6 +182,7 @@ async def approve(
         raise HTTPException(status_code=404, detail={"code": "PLAN_NOT_FOUND"}) from exc
     except ValueError as exc:
         raise HTTPException(status_code=409, detail={"code": "PLAN_NOT_APPROVABLE", "message": str(exc)}) from exc
+    await _publish_dashboard_refresh(request)
     return plan
 
 
@@ -180,12 +193,15 @@ async def approve(
 async def reject(
     plan_id: str,
     body: OperatorRequest,
+    request: Request,
     engine: Annotated[IntelligenceEngine, Depends(get_engine)],
 ) -> Any:
     try:
-        return engine.reject_plan(plan_id, body.operator)
+        plan = engine.reject_plan(plan_id, body.operator)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail={"code": "PLAN_NOT_FOUND"}) from exc
+    await _publish_dashboard_refresh(request)
+    return plan
 
 
 @router.post(
@@ -199,9 +215,12 @@ async def reject(
 async def execute(
     plan_id: str,
     body: OperatorRequest,
+    request: Request,
     engine: Annotated[IntelligenceEngine, Depends(get_engine)],
 ) -> Any:
     try:
-        return await engine.execute_plan(plan_id, body.operator)
+        plan = await engine.execute_plan(plan_id, body.operator)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail={"code": "PLAN_NOT_FOUND"}) from exc
+    await _publish_dashboard_refresh(request)
+    return plan

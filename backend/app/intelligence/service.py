@@ -145,6 +145,7 @@ class IntelligenceEngine:
         *,
         simulator_writes_enabled: bool | None = None,
         publish_update: Callable[[], Awaitable[None]] | None = None,
+        publish_decision_required: Callable[..., Awaitable[int]] | None = None,
     ) -> None:
         self.policy = policy or PolicyConfig()
         self.simulator_writes_enabled = (
@@ -154,6 +155,8 @@ class IntelligenceEngine:
         )
         self._http = http
         self._publish_update = publish_update
+        self._publish_decision_required = publish_decision_required
+        self._last_notified_decision_signature: tuple[tuple[str, ...], ...] | None = None
         self.model: DemandModel | None = None
         self.snapshot: Snapshot | None = None
         self.snapshot_id: str | None = None
@@ -411,6 +414,34 @@ class IntelligenceEngine:
         except Exception:  # noqa: BLE001
             logger.warning("Could not publish a WebSocket refresh notification.")
 
+    async def _publish_decision_if_new(self, plan: DecisionPlan) -> None:
+        """Notify once when the material content of an actionable plan changes."""
+        if not plan.recommendations or plan.status is not PlanStatus.DRAFT:
+            self._last_notified_decision_signature = None
+            return
+        if self._publish_decision_required is None:
+            return
+
+        signature = tuple(
+            sorted(
+                (
+                    item.action.source_depot_id,
+                    item.action.destination_station_id,
+                    item.action.route_id,
+                    item.action.fuel_type.value,
+                )
+                for item in plan.recommendations
+            )
+        )
+        if signature == self._last_notified_decision_signature:
+            return
+
+        try:
+            await self._publish_decision_required(plan.plan_id, len(plan.recommendations))
+            self._last_notified_decision_signature = signature
+        except Exception:  # noqa: BLE001
+            logger.warning("Could not publish a decision-required notification.")
+
     async def _run_once_locked(self, *, force: bool) -> EngineResults:
         started = time.monotonic()
         try:
@@ -639,6 +670,7 @@ class IntelligenceEngine:
             self.total_runtime_ms += (time.monotonic() - started) * 1000
             self.last_error = None
             await self._publish_refresh()
+            await self._publish_decision_if_new(plan)
             return self.latest
         except Exception as exc:  # noqa: BLE001 — the engine must never crash the loop
             self.last_error = f"{type(exc).__name__}: {exc}"

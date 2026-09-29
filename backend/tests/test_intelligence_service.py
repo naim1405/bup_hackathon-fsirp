@@ -333,6 +333,7 @@ def make_engine(
     policy: PolicyConfig,
     *,
     publish_update: Any | None = None,
+    publish_decision_required: Any | None = None,
 ) -> IntelligenceEngine:
     transport = httpx.MockTransport(world.handler)
     http = httpx.AsyncClient(transport=transport, base_url="http://simulator.test")
@@ -343,6 +344,7 @@ def make_engine(
         policy,
         simulator_writes_enabled=True,
         publish_update=publish_update,
+        publish_decision_required=publish_decision_required,
     )
 
 
@@ -368,6 +370,29 @@ class TestFullPipeline:
         run(engine)  # the same simulator tick is deduplicated
 
         assert notifications == ["update"]
+
+    def test_actionable_plan_notifies_only_once_for_unchanged_recommendations(self, tmp_path) -> None:
+        world = FakeSimulator()
+        world.create_shortage("station-mirpur", "DIESEL", 0.0)
+        notifications: list[tuple[str, int]] = []
+
+        async def publish_decision(plan_id: str, recommendation_count: int) -> int:
+            notifications.append((plan_id, recommendation_count))
+            return 1
+
+        engine = make_engine(
+            world,
+            make_policy(tmp_path),
+            publish_decision_required=publish_decision,
+        )
+
+        first = run(engine, force=True)
+        run(engine, force=True)
+
+        assert first.plan is not None and first.plan.recommendations
+        assert len(notifications) == 1
+        assert notifications[0][0] == first.plan.plan_id
+        assert notifications[0][1] == len(first.plan.recommendations)
 
     def test_bootstrap_train_detect_plan(self, tmp_path) -> None:
         world = FakeSimulator()

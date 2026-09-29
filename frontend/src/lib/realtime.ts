@@ -9,8 +9,7 @@ export type RealtimeStatus =
   "connecting" | "connected" | "reconnecting" | "polling";
 
 export function useRealtimeUpdates(queryClient: QueryClient): RealtimeStatus {
-  const router = useRouter();
-  const url = process.env.NEXT_PUBLIC_BACKEND_WS_URL;
+  const url = process.env.BACKEND_WS_URL;
   const [status, setStatus] = useState<RealtimeStatus>(() =>
     url ? "connecting" : "polling",
   );
@@ -25,7 +24,10 @@ export function useRealtimeUpdates(queryClient: QueryClient): RealtimeStatus {
 
     const refreshDashboard = () => {
       void queryClient.invalidateQueries({ queryKey: ["dashboard-snapshot"] });
-      void queryClient.invalidateQueries({ queryKey: ["intelligence"] });
+      void queryClient.invalidateQueries({
+        queryKey: ["intelligence-recommendations"],
+      });
+      void queryClient.invalidateQueries({ queryKey: ["intelligence-status"] });
     };
 
     const connect = () => {
