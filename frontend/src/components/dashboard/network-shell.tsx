@@ -11,6 +11,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
   BrainCircuit,
+  History,
   Fuel,
   LayoutDashboard,
   Truck,
@@ -38,6 +39,13 @@ const pages = [
     description:
       "Review forecasts, understand risks, and act on recommendations.",
     icon: BrainCircuit,
+  },
+  {
+    href: "/intelligence#past-situations",
+    title: "Past situations",
+    description:
+      "Browse past simulation situations and execute decisions retroactively.",
+    icon: History,
   },
   {
     href: "/depots",

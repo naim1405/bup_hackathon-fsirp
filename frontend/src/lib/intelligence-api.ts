@@ -51,6 +51,7 @@ export interface Plan {
   plan_id: string;
   status: string;
   as_of_tick: number;
+  generated_at_epoch?: number;
   warnings: string[];
   rejection_reason: string;
   approved_by: string | null;
