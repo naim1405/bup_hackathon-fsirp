@@ -59,6 +59,7 @@ import {
   type SupplyArrival,
 } from "@/lib/dashboard-api";
 import { useRealtimeUpdates } from "@/lib/realtime";
+import { IntelligenceDecisions } from "@/components/dashboard/intelligence-decisions";
 
 const fuelOrder: FuelType[] = ["DIESEL", "PETROL", "OCTANE"];
 const fuelLabels: Record<FuelType, string> = {
@@ -87,6 +88,7 @@ const friendlyResourceNames: Record<string, string> = {
 
 const navItems = [
   { href: "#overview", label: "Overview", icon: LayoutDashboard },
+  { href: "#decisions", label: "Decisions", icon: Check },
   { href: "#stations", label: "Stations", icon: Fuel },
   { href: "#activity", label: "Activity", icon: Activity },
   { href: "#deliveries", label: "Deliveries", icon: Truck },
@@ -1557,6 +1559,8 @@ export function DashboardOverview() {
                   accent="amber"
                 />
               </section>
+
+              <IntelligenceDecisions snapshot={snapshot} />
 
               <section
                 id="stations"

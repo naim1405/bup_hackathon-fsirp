@@ -88,7 +88,7 @@ class PolicyConfig:
     revalidation_max_age_seconds: float = _env_float("INTELLIGENCE_REVALIDATE_MAX_AGE", 20.0)
     submission_timeout_seconds: float = _env_float("INTELLIGENCE_SUBMIT_TIMEOUT", 8.0)
     # Plan expiry: first of tick age or wall age.
-    plan_expiry_ticks: int = _env_int("INTELLIGENCE_PLAN_EXPIRY_TICKS", 2)
+    plan_expiry_ticks: int = _env_int("INTELLIGENCE_PLAN_EXPIRY_TICKS", 960)
     plan_expiry_seconds: float = _env_float("INTELLIGENCE_PLAN_EXPIRY_SECONDS", 120.0)
 
     # --- Detection ------------------------------------------------------------

@@ -23,6 +23,10 @@ export function useRealtimeUpdates(queryClient: QueryClient): RealtimeStatus {
 
     const refreshDashboard = () => {
       void queryClient.invalidateQueries({ queryKey: ["dashboard-snapshot"] });
+      void queryClient.invalidateQueries({
+        queryKey: ["intelligence-recommendations"],
+      });
+      void queryClient.invalidateQueries({ queryKey: ["intelligence-status"] });
     };
 
     const connect = () => {

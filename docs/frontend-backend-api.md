@@ -14,20 +14,23 @@ For example, browser `GET /api/backend/v1/dashboard/snapshot` becomes FastAPI `G
 | --- | --- | --- |
 | `GET /api/v1/health` | `/api/backend/v1/health` | Backend liveness; does not contact the simulator. |
 | `GET /api/v1/dashboard/snapshot` | `/api/backend/v1/dashboard/snapshot` | Best-effort aggregate of the current simulator state for initial render and refresh. |
+| `GET/POST /api/v1/intelligence/...` | same path under `/api/backend` | Fetch proposed decisions/status; approve, reject, and submit through the guarded backend workflow. |
 | `GET /api/v1/allocations` | `/api/backend/v1/allocations` | Read allocation state from the simulator. |
 | `POST /api/v1/allocations` | `/api/backend/v1/allocations` | Submit one explicit operator-approved allocation. Disabled by default. |
 | `POST /api/v1/allocations/{allocation_id}/cancel` | same path under `/api/backend` | Request cancellation of an allocation. Disabled by default. |
 | `GET /api/v1/simulator/{resource}` | same path under `/api/backend` | Granular validated read endpoints for health, instance, regions, depots, stations, routes, supply arrivals, events, allocations, demand history, and metrics. |
 | `GET /api/v1/simulator/stream` | `/api/backend/v1/simulator/stream` | Validated simulator SSE proxy. |
-| `WS /api/v1/ws` | Browser connects to the configured FastAPI WebSocket URL | Receives refresh notifications; it never calls the simulator. |
+| `WS /api/v1/ws` | Browser connects to the configured FastAPI WebSocket URL | Receives REST refresh and decision-required notifications; it never calls the simulator. |
 
 ### Live refresh notifications
 
-The browser opens a WebSocket to FastAPI at `/api/v1/ws`. FastAPI sends a small `connected` message on connect and an `update` message after the intelligence engine collects a fresh simulator tick. The frontend treats `update` only as a signal to refetch `/api/backend/v1/dashboard/snapshot`; REST remains the validated source of truth. Existing periodic and manual refreshes remain as a fallback when the socket is unavailable.
+The browser opens a WebSocket to FastAPI at `/api/v1/ws`. FastAPI sends `update` after a fresh intelligence run, and `decision_required` when a materially new actionable plan is ready. These are signals only: the frontend refetches `/api/backend/v1/dashboard/snapshot`, `/api/backend/v1/intelligence/recommendations`, and `/api/backend/v1/intelligence/status` over REST. Periodic refresh remains a fallback.
 
-A `decision_required` message is handled as a user-facing toast and also invalidates the REST snapshot. To manually test that path in Swagger, keep an operator dashboard open with its WebSocket connected, then run `POST /api/v1/realtime/test-decision-notification` from FastAPI `/docs`. The response reports `connected_clients`; the open dashboard should show “Decision needed.” This sample endpoint does not create a plan or change simulator state. It only tests notification delivery; automatic decision-triggered notifications are not wired by this test route.
+The dashboard presents the plan's proposed deliveries, reasons, projected impact, and constraints. An operator enters their name/ID and chooses **Approve & send to simulator** or **Reject**. Approval and execution call the existing intelligence endpoints; execution requires both write flags, revalidates current simulator state, and reports actual outcomes. The operator must confirm before sending.
 
-Next.js rewrites do not proxy WebSocket upgrades, so this socket uses `NEXT_PUBLIC_BACKEND_WS_URL` (for example, `ws://localhost:8001/api/v1/ws` locally or `wss://api.example.com/api/v1/ws` in production). Configure the backend's `CORS_ORIGINS` with the exact frontend origin. These messages contain no simulator state or IDs.
+To manually test the notification from Swagger, keep an operator dashboard open with its WebSocket connected, then run `POST /api/v1/realtime/test-decision-notification` from FastAPI `/docs`. The response reports `connected_clients`; the open dashboard should show “Decision needed.” This test does not create a plan or change simulator state. The API has no operator authentication; only enable simulator writes on a trusted, access-controlled environment.
+
+Next.js rewrites do not proxy WebSocket upgrades, so the socket uses `NEXT_PUBLIC_BACKEND_WS_URL` (for example, `ws://localhost:8001/api/v1/ws` locally or `wss://api.example.com/api/v1/ws` in production). Configure the backend's `CORS_ORIGINS` with the exact frontend origin. Notifications contain no full simulator state or action payload.
 
 Dashboard demand history can be narrowed with `?history_limit=200&station_id=station-mirpur`; `history_limit` is constrained to 1–2000. Snapshot resources are fetched concurrently and are **not** a simulator transaction. `consistent` is true only when the simulator tick before and after the fetch matches.
 
