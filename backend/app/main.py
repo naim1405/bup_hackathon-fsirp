@@ -11,12 +11,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.dashboard import router as dashboard_router
-from app.operations import router as operations_router
+from app.intelligence.config import POLICY
+from app.intelligence.routes import router as intelligence_router
+from app.intelligence.service import IntelligenceEngine
 from app.observability import router as observability_router
-from app.telemetry import ObservabilityMiddleware
+from app.operations import router as operations_router
 from app.simulator.client import SimulatorClient
 from app.simulator.config import SIMULATOR_BASE_URL, SIMULATOR_TIMEOUT_SECONDS
 from app.simulator.routes import router as simulator_router
+from app.telemetry import ObservabilityMiddleware
 
 
 def _cors_origins() -> list[str]:
@@ -30,14 +33,20 @@ def _cors_origins() -> list[str]:
 
 @asynccontextmanager
 async def lifespan(application: FastAPI) -> AsyncIterator[None]:
-    """Create one reusable async HTTP client for the simulator connection."""
+    """Create one reusable async HTTP client for simulator and intelligence services."""
     async with httpx.AsyncClient(
         base_url=SIMULATOR_BASE_URL,
         timeout=httpx.Timeout(SIMULATOR_TIMEOUT_SECONDS, connect=3.0),
         follow_redirects=False,
     ) as simulator_http:
         application.state.simulator_client = SimulatorClient(simulator_http)
-        yield
+        intelligence = IntelligenceEngine(simulator_http, POLICY)
+        application.state.intelligence = intelligence
+        await intelligence.start_loop()
+        try:
+            yield
+        finally:
+            await intelligence.stop_loop()
 
 
 app = FastAPI(
@@ -66,6 +75,7 @@ app.include_router(simulator_router)
 app.include_router(dashboard_router)
 app.include_router(operations_router)
 app.include_router(observability_router)
+app.include_router(intelligence_router)
 app.add_middleware(ObservabilityMiddleware)
 
 
@@ -81,6 +91,7 @@ def read_root() -> dict[str, str]:
         "simulator_api": "/api/v1/simulator",
         "dashboard_snapshot": "/api/v1/dashboard/snapshot",
         "allocations_api": "/api/v1/allocations",
+        "intelligence_api": "/api/v1/intelligence",
     }
 
 

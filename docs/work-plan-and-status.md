@@ -4,7 +4,7 @@
 
 ## Current repository state
 
-`main` contains the initial backend/frontend scaffolds, simulator read proxy, containerization, deployment automation, and the latest timestamp compatibility fixes. The `feature/frontend-backend-api` branch adds frontend API endpoints and the operator overview; PR #2 is open to merge those changes into `main`.
+`main` is current at `a738ac8` and includes the frontend-facing backend API, operator overview, Site24x7 observability, deployment automation, and timestamp compatibility fixes. The intelligence engine from `feature/intelligence-engine` is being integrated and safety-reviewed on `integration/intelligence-engine`; do not merge it directly to `main` until review and CI are complete.
 
 | Commit                                                    | Work delivered                                                                                                                                                                        |
 | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -12,8 +12,9 @@
 | `3fc3df4` — Add validated read-only simulator integration | Async simulator HTTP client, Pydantic response models, simulator REST read routes, SSE proxy/event validation, upstream error mapping, stale header forwarding, and mock-based tests. |
 | `efe9cf1` — Configure Next.js frontend with shadcn UI     | Next.js App Router/TypeScript/Tailwind v4 scaffold, shadcn/ui Nova/Radix setup and components, providers, same-origin FastAPI rewrite, starter page, and frontend tooling.            |
 | `7af9252` — Dockerize frontend and backend services       | Multi-stage frontend/backend Dockerfiles, root Compose stack including the simulator, health checks, and guides for all-in-one or VPS + Vercel deployment.                            |
+| `integration/intelligence-engine` — safety review in progress | Integrated forecasting, detection, projection, and planning API; simulator writes remain gated by two default-off controls. Backend suite: 95 tests currently pass locally; see `backend/INTELLIGENCE_API.md`. |
 
-The frontend-facing API (`a528383`) and observability (`d26ecda`) implementations are included in this merge.
+The frontend-facing API and observability are already present on `main`; the current integration branch adds the intelligence package without replacing either.
 
 ### Implemented in the current working tree
 
@@ -31,8 +32,9 @@ The frontend-facing API (`a528383`) and observability (`d26ecda`) implementation
 - `GET /api/v1/allocations`, `POST /api/v1/allocations`, and `POST /api/v1/allocations/{id}/cancel` provide frontend-facing allocation state and explicit simulator commands. Writes are disabled unless `SIMULATOR_WRITES_ENABLED=true`; no recommendation logic is involved.
 - Allocation request bodies are validated; simulator responses are validated and successful upstream status codes are preserved. A retry must retain the same body `idempotency_key`.
 - There is no operator authentication/authorization yet. Keep writes disabled on public deployments until access control is provided.
-- Simulator-owned state/history is not copied into an application database.
-- Tests cover timestamp regressions, partial snapshots, freshness, validation, disabled writes, create/cancel forwarding, observability and proxy/SSE behavior. Local real-simulator verification is recorded below; VPS verification remains pending.
+- Simulator-owned state/history is not copied into an application database or persistent backend history store. The intelligence engine bootstraps from simulator demand history and keeps in-memory model state only; restart triggers a fresh bootstrap.
+- `/api/v1/intelligence/*` provides forecasts, projections, detections/alerts, constrained plans, and approve/reject/execute endpoints. It generates recommendations but never executes automatically. Execution requires both `SIMULATOR_WRITES_ENABLED=true` and `INTELLIGENCE_EXECUTION_ENABLED=true`; both default to false. Stale/inconsistent snapshots suppress recommendations and block writes. No operator authentication exists yet.
+- Tests cover timestamp regressions, partial snapshots, freshness, validation, disabled writes, create/cancel forwarding, observability, and proxy/SSE behavior. Intelligence tests cover feasibility, stale-state suppression, dual write gating, response validation, and recovery. A local deterministic fake-simulator smoke passed for health, dashboard, intelligence run, default-off writes, and the explicitly enabled approve → execute path. Organizer-simulator and VPS verification remain pending.
 
 #### Frontend
 
@@ -56,10 +58,10 @@ The frontend-facing API (`a528383`) and observability (`d26ecda`) implementation
 
 ### Not implemented yet
 
-- Full operator dashboard, SSE data hooks, recommendation review, and explicit action confirmation UI. The read-only health panel is implemented.
-- Demand forecasting, shortage detection, recommendation policy, recommendation persistence, or policy versioning.
-- Operator authentication/authorization; the write feature flag is not a security boundary.
-- Application database, recommendation audit history, or decision-history retention policy.
+- Intelligence-driven recommendation/alert review and explicit action-confirmation UI; the existing overview remains simulator-state focused.
+- Frontend SSE hooks and dedicated station/depot/delivery workflows.
+- Operator authentication/authorization. Both simulator write flags default off but are not an access-control boundary.
+- Persistent recommendation audit history or decision-history retention policy; current plans live in process memory.
 - Live Site24x7 ingestion/alerts, VPS load/resource evidence, remote deployment verification, and final demo evidence.
 
 ## Recommended work order and ownership
@@ -75,14 +77,11 @@ Owners are roles; assign actual names in the team. Keep deployment/observability
 
 **Done when:** the team can start simulator + backend reproducibly, query every read endpoint, and see valid/stale/error behavior clearly.
 
-### P1 — Recommendation engine (engine owner)
+### P1 — Recommendation engine (implemented on integration branch; validation ongoing)
 
-1. Implement the pure forecast/risk/decision module described in [Recommendation Engine Design](recommendation-engine-design.md).
-2. Add cold-start profile priors, history-based demand estimates, ETA-aware projected stock, and explanation/confidence output.
-3. Implement feasibility filters for routes, depot inventory, dispatch headroom, station capacity, inbound allocations, outages, and stale state.
-4. Build deterministic baseline-vs-policy replays and evaluate service level, unmet demand, stockouts, and failures.
+The engine branch provides bootstrap/online forecasting, inventory projections, detections, constrained plans, approval workflow, idempotent execution, and deterministic unit/API tests. Integration review additionally defaults both write gates off, blocks stale/inconsistent snapshots, validates allocation responses, instruments simulator calls, and keeps demand history simulator-owned. The current backend suite passes locally; live organizer-simulator and VPS verification remain outstanding.
 
-**Done when:** replay tests show feasible, explainable recommendations that outperform or usefully complement a stated baseline.
+**Done when:** reviewers approve the integration diff, CI passes on the pushed integration branch, and live-simulator behavior is validated without enabling unauthenticated writes publicly.
 
 ### P1 — Operator UI/data wiring (frontend owner)
 
@@ -104,7 +103,7 @@ Owners are roles; assign actual names in the team. Keep deployment/observability
 
 ### P2 — Resilience, observability, and load test (DevOps/reliability owner)
 
-Implemented on `feature/observability`: structured request/failure/recovery logs, bounded process-local metrics with token protection, validated dependency status, a polling frontend health panel, Site24x7 collection plugin, and k6 dashboard workload. See [setup and remaining acceptance gates](../deploy/observability.md). Existing partial-result degradation is instrumented; writes are not automatically retried. Simulator simulation timestamps accept naive and aware values without inventing a timezone. Live Site24x7 setup, VPS/Vercel validation and performance evidence remain pending. Engine telemetry remains blocked on integrating the separate intelligence implementation; it is not claimed complete here.
+Implemented on `feature/observability`: structured request/failure/recovery logs, bounded process-local metrics with token protection, validated dependency status, a polling frontend health panel, Site24x7 collection plugin, and k6 dashboard workload. See [setup and remaining acceptance gates](../deploy/observability.md). Existing partial-result degradation is instrumented; writes are not automatically retried. Simulator simulation timestamps accept naive and aware values without inventing a timezone. Live Site24x7 setup, VPS/Vercel validation and performance evidence remain pending. Intelligence simulator calls are instrumented in this integration branch and contribute to the same process-local counters.
 
 Local verification (2026-09-29): backend/plugin tests passed; published simulator 1.0.0 returned healthy dependency status and a complete/fresh snapshot. Injected unavailable and stale-data faults each produced liveness 200, dependency 503, then healthy recovery. k6 local smoke: 2 users, 30 seconds, 54 complete/fresh responses, 0 HTTP failures, 1.78 requests/second, average 122.49 ms, p50 110.53 ms, p95 187.05 ms, p99 202.30 ms. Runner and services shared Docker Desktop: these are not VPS capacity results, and resource peaks were not captured. Frontend lint, generated-route typecheck, changed-file formatting and production build passed. Whole-tree formatting flags 27 untouched files. Browser visual verification and live provider setup remain pending.
 
