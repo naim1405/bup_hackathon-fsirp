@@ -8,7 +8,7 @@ export type RealtimeStatus =
   "connecting" | "connected" | "reconnecting" | "polling";
 
 export function useRealtimeUpdates(queryClient: QueryClient): RealtimeStatus {
-  const url = process.env.NEXT_PUBLIC_BACKEND_WS_URL;
+  const url = process.env.BACKEND_WS_URL;
   const [status, setStatus] = useState<RealtimeStatus>(() =>
     url ? "connecting" : "polling",
   );
