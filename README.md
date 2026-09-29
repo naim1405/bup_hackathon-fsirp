@@ -2,7 +2,7 @@
 
 Monorepo for the BUP CSE Fest hackathon project:
 
-- `backend/` — FastAPI frontend API for validated simulator state, a dashboard snapshot, SSE proxying, and explicitly gated operator allocation commands.
+- `backend/` — FastAPI frontend API for validated simulator state, observability, a dashboard snapshot, SSE proxying, the advisory intelligence engine, and explicitly gated operator allocation commands.
 - `frontend/` — Next.js App Router operator console with a live network overview for stations, inventory, supply arrivals, demand, and deliveries.
 
 ## Run the frontend
@@ -38,7 +38,7 @@ Run the full simulator + backend + frontend stack with `docker compose up --buil
 
 ## Team documentation
 
-Start at [`docs/README.md`](docs/README.md) for team context and the [frontend ↔ backend API contract](docs/frontend-backend-api.md), which describes the browser paths, snapshot response, operator action requests, and current security boundary.
+Start at [`docs/README.md`](docs/README.md) for team context and the [frontend ↔ backend API contract](docs/frontend-backend-api.md), which describes browser paths, snapshot responses, operator actions, and the current security boundary. Backend and intelligence details are in [`backend/README.md`](backend/README.md) and the [intelligence API contract](backend/INTELLIGENCE_API.md).
 
 ## Checks
 
