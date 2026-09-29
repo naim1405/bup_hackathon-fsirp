@@ -1,0 +1,325 @@
+"use client";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  intelligenceRequest,
+  type EngineStatus,
+  type Prediction,
+  type Plan,
+  type AlertRecord,
+} from "@/lib/intelligence-api";
+import { Button } from "@/components/ui/button";
+import { Predictions } from "./predictions";
+import { PlanReview } from "./plan-review";
+import { Panel, human } from "./shared";
+
+function useIntelligence<T>(endpoint: string) {
+  return useQuery({
+    queryKey: ["intelligence", endpoint],
+    queryFn: () => intelligenceRequest<T>(endpoint),
+    refetchInterval: 15000,
+    staleTime: 5000,
+    retry: 1,
+    refetchOnWindowFocus: true,
+  });
+}
+export function IntelligencePage() {
+  const client = useQueryClient();
+  const status = useIntelligence<EngineStatus>("/status");
+  const prediction = useIntelligence<Prediction>("/prediction");
+  const recommendations = useIntelligence<Plan>("/recommendations");
+  const alerts = useIntelligence<AlertRecord[]>("/alerts");
+  const [operator, setOperator] = useState("");
+  const [comment, setComment] = useState("");
+  const [reviewedId, setReviewedId] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState<{
+    action: "approve" | "reject" | "execute";
+    plan: Plan;
+  } | null>(null);
+  const [feedback, setFeedback] = useState("");
+  // Keep the exact reviewed plan visible even if a background run publishes a new one.
+  const reviewed = useQuery({
+    queryKey: ["intelligence", "plan", reviewedId],
+    queryFn: () =>
+      intelligenceRequest<Plan>(`/plans/${encodeURIComponent(reviewedId!)}`),
+    enabled: !!reviewedId,
+    refetchInterval: 15000,
+    staleTime: 0,
+  });
+  const mutation = useMutation({
+    mutationFn: ({ path, body }: { path: string; body: object }) =>
+      intelligenceRequest<unknown>(path, body),
+    onSuccess: (data, variables) => {
+      const plan = data as Partial<Plan> | null;
+      if (plan?.plan_id) {
+        setReviewedId(plan.plan_id);
+        client.setQueryData(["intelligence", "plan", plan.plan_id], plan);
+      }
+      setFeedback(
+        plan?.status
+          ? `Plan ${human(plan.status)}${plan.rejection_reason && plan.rejection_reason !== "none" ? `: ${human(plan.rejection_reason)}` : ""}. Review warnings and shipment outcomes below.`
+          : variables.path === "/run"
+            ? "Analysis run completed. Refreshing results."
+            : "Alert acknowledged.",
+      );
+      setConfirmation(null);
+    },
+    onError: (error) => {
+      setFeedback(
+        `Action could not be confirmed: ${error.message}. Refresh and check current status before retrying.`,
+      );
+      setConfirmation(null);
+    },
+    onSettled: () => {
+      void client.invalidateQueries({ queryKey: ["intelligence"] });
+      void client.invalidateQueries({ queryKey: ["dashboard-snapshot"] });
+    },
+    retry: false,
+  });
+  const planQuery = reviewedId ? reviewed : recommendations;
+  const plan = planQuery.data;
+  const identity = operator.trim();
+  const busy = mutation.isPending;
+  const canAct =
+    !!identity && !busy && !planQuery.isError && !planQuery.isFetching;
+  const errors = [
+    { name: "Engine status", q: status },
+    { name: "Predictions", q: prediction },
+    { name: "Recommendations", q: recommendations },
+    { name: "Alerts", q: alerts },
+    ...(reviewedId ? [{ name: "Reviewed plan", q: reviewed }] : []),
+  ];
+  return (
+    <div className="space-y-6">
+      <Panel title="Intelligence engine">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="font-medium capitalize">
+              {status.isError
+                ? "Status unavailable"
+                : status.data
+                  ? human(status.data.engine)
+                  : "Checking engine…"}
+            </p>
+            {status.data && (
+              <>
+                <p className="mt-2 text-sm text-slate-500">
+                  Last run: tick {status.data.last_run_tick ?? "—"} · Snapshot
+                  age:{" "}
+                  {status.data.snapshot_age_seconds == null
+                    ? "unknown"
+                    : `${Math.round(status.data.snapshot_age_seconds)}s`}{" "}
+                  ·{" "}
+                  {status.data.training.trained
+                    ? "Trained model"
+                    : "Model warming up"}{" "}
+                  ({status.data.training.samples} samples)
+                </p>
+                <p className="mt-1 text-sm text-slate-500">
+                  {status.data.training.message}
+                </p>
+                {status.data.fallback_active && (
+                  <p className="mt-2 text-sm text-amber-800">
+                    Fallback forecasting is active. Review confidence before
+                    acting.
+                  </p>
+                )}
+                {status.data.last_error && (
+                  <p className="mt-2 text-sm text-red-700">
+                    {status.data.last_error}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+          <Button
+            variant="outline"
+            disabled={busy}
+            onClick={() =>
+              mutation.mutate({ path: "/run", body: { force: true } })
+            }
+          >
+            Run analysis now
+          </Button>
+        </div>
+        <p className="mt-3 text-xs text-slate-500">
+          Analysis does not submit shipments. Live notifications and periodic
+          refresh keep results up to date.
+        </p>
+      </Panel>
+      {errors
+        .filter(({ q }) => q.isError)
+        .map(({ name, q }) => (
+          <div
+            role="alert"
+            key={name}
+            className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
+          >
+            {name}: {q.error?.message}.{" "}
+            {q.data
+              ? "Previously loaded data may be stale."
+              : "Data is not available yet."}{" "}
+            <button className="ml-2 underline" onClick={() => void q.refetch()}>
+              Retry
+            </button>
+          </div>
+        ))}
+      {feedback && (
+        <p
+          role="status"
+          className="rounded-xl border border-slate-200 bg-white p-4 text-sm"
+        >
+          {feedback}
+        </p>
+      )}
+      {prediction.isPending ? (
+        <p role="status">Loading predictions…</p>
+      ) : (
+        prediction.data && <Predictions data={prediction.data} />
+      )}
+      <Panel title="Operator identity">
+        <p className="mb-4 text-sm text-slate-500">
+          Enter your operator ID for the decision audit trail. This identifies
+          the decision; it is not a sign-in.
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="text-sm">
+            Operator ID{" "}
+            <input
+              maxLength={120}
+              value={operator}
+              onChange={(e) => setOperator(e.target.value)}
+              className="mt-2 block w-full rounded-lg border border-slate-300 p-3"
+              placeholder="Your name or operator ID"
+            />
+          </label>
+          <label className="text-sm">
+            Alert acknowledgement comment (optional)
+            <input
+              maxLength={500}
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              className="mt-2 block w-full rounded-lg border border-slate-300 p-3"
+            />
+          </label>
+        </div>
+      </Panel>
+      {reviewedId && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-blue-50 p-4 text-sm text-blue-900">
+          <span>
+            Showing your reviewed plan. New recommendations will not replace it
+            automatically.
+          </span>
+          <Button
+            variant="outline"
+            disabled={busy || !!confirmation}
+            onClick={() => setReviewedId(null)}
+          >
+            View latest recommendations
+          </Button>
+        </div>
+      )}
+      {planQuery.isPending ? (
+        <p role="status">Loading recommendations…</p>
+      ) : (
+        plan && (
+          <PlanReview
+            plan={plan}
+            disabled={!canAct}
+            executionEnabled={
+              !!status.data?.execution_enabled && !status.isError
+            }
+            onAction={(action, plan) => setConfirmation({ action, plan })}
+          />
+        )
+      )}
+      {confirmation && (
+        <Panel title={`Confirm ${confirmation.action}`}>
+          <p className="text-sm">
+            You are about to {confirmation.action} plan{" "}
+            <b className="break-all">{confirmation.plan.plan_id}</b> from tick{" "}
+            {confirmation.plan.as_of_tick}, containing{" "}
+            {confirmation.plan.recommendations.length} shipments, as{" "}
+            <b>{identity || "(operator ID required)"}</b>.{" "}
+            {confirmation.action === "execute"
+              ? "This submits fuel allocations to the simulator. The backend revalidates safety and plan freshness."
+              : "This does not submit shipments."}
+          </p>
+          <div className="mt-4 flex gap-3">
+            <Button
+              disabled={
+                busy ||
+                !identity ||
+                (confirmation.action === "execute" &&
+                  (!status.data?.execution_enabled || status.isError))
+              }
+              onClick={() =>
+                mutation.mutate({
+                  path: `/plans/${encodeURIComponent(confirmation.plan.plan_id)}/${confirmation.action}`,
+                  body: { operator: identity },
+                })
+              }
+            >
+              {busy ? "Submitting…" : `Confirm ${confirmation.action}`}
+            </Button>
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={() => setConfirmation(null)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </Panel>
+      )}
+      <Panel title="Risk alerts">
+        {alerts.isPending && <p>Loading alerts…</p>}
+        {alerts.data?.length === 0 && (
+          <p className="text-sm text-slate-500">No alerts recorded.</p>
+        )}
+        <div className="space-y-3">
+          {alerts.data?.map((a) => (
+            <article
+              key={a.finding.finding_id}
+              className="rounded-xl border border-slate-200 p-4"
+            >
+              <div className="flex flex-wrap justify-between gap-3">
+                <div>
+                  <h3 className="font-medium">{a.finding.title}</h3>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {human(a.finding.category)} · {a.finding.severity} severity
+                    · {a.finding.confidence} confidence · {human(a.state)}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={
+                    !identity || busy || alerts.isError || a.state !== "active"
+                  }
+                  onClick={() =>
+                    mutation.mutate({
+                      path: `/alerts/${encodeURIComponent(a.finding.finding_id)}/acknowledge`,
+                      body: {
+                        operator: identity,
+                        comment: comment.trim() || null,
+                      },
+                    })
+                  }
+                >
+                  Acknowledge
+                </Button>
+              </div>
+              <p className="mt-3 text-sm text-slate-600">{a.finding.detail}</p>
+              {a.acknowledged_by && (
+                <p className="mt-2 text-xs text-slate-500">
+                  Acknowledged by {a.acknowledged_by}
+                </p>
+              )}
+            </article>
+          ))}
+        </div>
+      </Panel>
+    </div>
+  );
+}

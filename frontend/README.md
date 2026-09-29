@@ -31,3 +31,25 @@ npm run build
 ## UI components
 
 `components.json` configures the Nova shadcn/ui preset with Radix primitives, Lucide icons, CSS-variable theming, and the Tailwind v4 stylesheet. Add components with `npx shadcn@latest add <component>`.
+
+## Operator pages and intelligence
+
+The shared operations layout owns one WebSocket connection and network snapshot query.
+Routes: `/` (summary/trends), `/depots` (stock/routes/inbound supply), `/stations`
+(stock cards/detail drawer), `/activity` (events), `/deliveries` (shipment ledger),
+and `/intelligence` (forecasts, alerts, plan review and execution outcomes).
+Existing same-origin backend rewrites and `NEXT_PUBLIC_BACKEND_WS_URL` remain unchanged.
+Intelligence queries refresh on WebSocket updates/decision notifications and poll every
+15 seconds. Errors retain historical results with a visible warning.
+
+Operator ID is required for audited decisions; it is not authentication. Approval and
+execution are separate confirmed actions. Execute is disabled unless the backend reports
+execution enabled. This frontend does not change backend write switches. Reviewed plan IDs
+stay pinned so new background recommendations cannot silently replace an operator's plan.
+
+Validation: `npx next typegen && npm run typecheck && npm run lint && npm run build`.
+Browser smoke test (mock API responses, no live simulator writes): install Playwright with
+`npm install --no-save --package-lock=false playwright`, then
+`npx playwright install --with-deps chromium`. Start a production build with `npm start`
+and run `node tests/operator-smoke.mjs`. Covers all routes, prediction display,
+operator identity, confirmations, execution gating, outcomes, alerts and mobile station details.
