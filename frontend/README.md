@@ -12,7 +12,7 @@ cp .env.example .env.local
 npm run dev -- --hostname 0.0.0.0 --port 3000
 ```
 
-Open <http://localhost:3000>. The frontend proxies same-origin requests from `/api/backend/*` to the FastAPI service. For example, `/api/backend/v1/simulator/instance` maps to the backend's `/api/v1/simulator/instance` endpoint. Configure the server-only `BACKEND_API_URL` in `.env.local` if FastAPI is not reachable at `http://127.0.0.1:8001`.
+Open <http://localhost:3000> for the operator network overview. It reads the best-effort dashboard snapshot through `/api/backend/v1/dashboard/snapshot` and never calls the simulator directly. Same-origin `/api/backend/*` requests are rewritten server-side to FastAPI `/api/*`. Configure the server-only `BACKEND_API_URL` in `.env.local` if FastAPI is not reachable at `http://127.0.0.1:8001`.
 
 ## Available commands
 
