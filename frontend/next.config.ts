@@ -5,6 +5,10 @@ const backendApiUrl = (
 ).replace(/\/+$/, "");
 
 const nextConfig: NextConfig = {
+  // Standalone output is only for our container build; Vercel uses its native adapter.
+  ...(process.env.DOCKER_BUILD === "1"
+    ? { output: "standalone" as const }
+    : {}),
   reactCompiler: true,
   // Browser requests remain same-origin; Next proxies them to FastAPI server-side.
   async rewrites() {

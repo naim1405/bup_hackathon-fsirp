@@ -24,3 +24,7 @@ Run tests from this directory:
 ```bash
 python -m pytest
 ```
+
+## Container deployment
+
+From the repository root, `docker compose up -d --build backend` starts this API together with the simulator service it depends on. See [`../deploy/README.md`](../deploy/README.md) for local/full-stack and VPS deployment instructions. Do not publish the simulator/admin port publicly.

@@ -1,0 +1,84 @@
+name: fsirp
+
+services:
+  simulator:
+    image: asifmahmoud414/bup-fuel-supply-simulator:1.0.0
+    environment:
+      SIMULATION_SPEED: ${SIMULATION_SPEED:-8}
+      TICK_MINUTES: ${TICK_MINUTES:-15}
+      SIMULATOR_START_MODE: ${SIMULATOR_START_MODE:-paused}
+    ports:
+      # Keep the simulator and its admin console off the public network.
+      - "${SIMULATOR_BIND_ADDRESS:-127.0.0.1}:8000:8000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/v1/health', timeout=2)",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 15s
+    restart: unless-stopped
+    init: true
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      SIMULATOR_BASE_URL: http://simulator:8000
+      SIMULATOR_TIMEOUT_SECONDS: ${SIMULATOR_TIMEOUT_SECONDS:-8}
+    depends_on:
+      simulator:
+        condition: service_healthy
+    ports:
+      # Bind loopback on a VPS; put a TLS reverse proxy in front if public access is needed.
+      - "${BACKEND_BIND_ADDRESS:-127.0.0.1}:8001:8001"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/api/v1/health', timeout=2)",
+        ]
+      interval: 20s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    init: true
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Next.js stores rewrites in its build output, so this must be set at build time.
+        BACKEND_API_URL: ${BACKEND_API_URL:-http://backend:8001}
+    environment:
+      NODE_ENV: production
+      BACKEND_API_URL: ${BACKEND_API_URL:-http://backend:8001}
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_BIND_ADDRESS:-127.0.0.1}:3000:3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+    init: true

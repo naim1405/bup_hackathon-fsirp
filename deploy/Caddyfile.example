@@ -1,0 +1,9 @@
+# Replace api.example.com with a domain whose DNS points to this VPS.
+# Caddy obtains and renews TLS certificates automatically.
+api.example.com {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:8001 {
+        # Flush streaming responses such as the SSE endpoint without buffering.
+        flush_interval -1
+    }
+}

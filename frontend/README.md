@@ -23,6 +23,11 @@ npm run format:check
 npm run build
 ```
 
+## Deployment
+
+- Docker image: the repo-root Compose stack builds the production standalone image with `BACKEND_API_URL=http://backend:8001` for its private service network.
+- Vercel: set the project root directory to `frontend` and configure `BACKEND_API_URL` to the public HTTPS FastAPI origin at build time. Rebuild after changing it. See [`../deploy/README.md`](../deploy/README.md) for split deployment notes and the SSE caveat.
+
 ## UI components
 
 `components.json` configures the Nova shadcn/ui preset with Radix primitives, Lucide icons, CSS-variable theming, and the Tailwind v4 stylesheet. Add components with `npx shadcn@latest add <component>`.
