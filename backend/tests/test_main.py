@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import Callable
+from datetime import datetime
 from typing import Any
 
 import httpx
@@ -42,7 +43,8 @@ class APIClient:
 
 
 @pytest.fixture
-def api_client():
+def api_client(request):
+    time_suffix = getattr(request, "param", "+00:00")
     calls: list[httpx.Request] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -83,7 +85,7 @@ def api_client():
                     "scenario_id": "baseline",
                     "scenario_version": "1.0",
                     "seed": 12345,
-                    "sim_time": "2026-01-01T00:00:00+00:00",
+                    "sim_time": f"2026-01-01T00:00:00{time_suffix}",
                     "tick": 0,
                     "tick_minutes": 15,
                     "status": "PAUSED",
@@ -124,7 +126,7 @@ def api_client():
                         "station_id": "station-mirpur",
                         "fuel_type": "DIESEL",
                         "tick": 3,
-                        "sim_time": "2026-01-01T00:45:00+00:00",
+                        "sim_time": f"2026-01-01T00:45:00{time_suffix}",
                         "demand_liters": 95.1,
                         "served_liters": 90.0,
                         "unmet_liters": 5.1,
@@ -192,13 +194,17 @@ def test_backend_health_is_independent_of_simulator(api_client) -> None:
     assert calls == []
 
 
-def test_simulator_instance_is_fetched_and_validated(api_client) -> None:
+@pytest.mark.parametrize("api_client", ["", "+00:00", "+06:00"], indirect=True)
+def test_simulator_instance_is_fetched_and_validated(api_client, request) -> None:
     client, calls = api_client
     response = client.get("/api/v1/simulator/instance")
 
     assert response.status_code == 200
     assert response.json()["scenario_id"] == "baseline"
     assert calls[-1].url.path == "/v1/instance"
+    assert datetime.fromisoformat(response.json()["sim_time"]) == datetime.fromisoformat(
+        f"2026-01-01T00:00:00{request.node.callspec.params['api_client']}"
+    )
 
 
 def test_simulator_data_and_stale_header_are_forwarded(api_client) -> None:
@@ -210,7 +216,8 @@ def test_simulator_data_and_stale_header_are_forwarded(api_client) -> None:
     assert response.headers["X-Simulator-Stale"] == "true"
 
 
-def test_demand_history_query_is_validated_and_forwarded(api_client) -> None:
+@pytest.mark.parametrize("api_client", ["", "+00:00", "+06:00"], indirect=True)
+def test_demand_history_query_is_validated_and_forwarded(api_client, request) -> None:
     client, calls = api_client
     response = client.get(
         "/api/v1/simulator/demand-history",
@@ -219,6 +226,9 @@ def test_demand_history_query_is_validated_and_forwarded(api_client) -> None:
 
     assert response.status_code == 200
     assert response.json()[0]["unmet_liters"] == 5.1
+    assert datetime.fromisoformat(response.json()[0]["sim_time"]) == datetime.fromisoformat(
+        f"2026-01-01T00:45:00{request.node.callspec.params['api_client']}"
+    )
     assert calls[-1].url.params["station_id"] == "station-mirpur"
     assert calls[-1].url.params["limit"] == "100"
 
@@ -339,15 +349,17 @@ def test_unknown_upstream_entity_error_is_preserved(api_client) -> None:
     assert response.json()["detail"]["upstream_status"] == 404
 
 
-def test_documented_sse_event_is_validated_and_relayed() -> None:
+@pytest.mark.parametrize("suffix", ["", "+00:00", "+06:00"])
+def test_documented_sse_event_is_validated_and_relayed(suffix) -> None:
+    sim_time = f"2026-01-01T00:45:00{suffix}"
     upstream = httpx.Response(
         200,
         headers={"content-type": "text/event-stream"},
         content=(
-            b"event: simulation.tick\n"
-            b'data: {"tick": 3, "sim_time": "2026-01-01T00:45:00+00:00"}\n\n'
-            b": keepalive\n\n"
-        ),
+            "event: simulation.tick\n"
+            f'data: {json.dumps({"tick": 3, "sim_time": sim_time})}\n\n'
+            ": keepalive\n\n"
+        ).encode(),
     )
 
     async def collect() -> bytes:
@@ -357,13 +369,26 @@ def test_documented_sse_event_is_validated_and_relayed() -> None:
     assert "event: simulation.tick" in result
     assert '"tick": 3' in result
     assert ": keepalive" in result
+    assert sim_time in result
+    assert "simulator.protocol_error" not in result
 
 
-def test_invalid_sse_payload_becomes_protocol_error_event() -> None:
+@pytest.mark.parametrize("api_client", ["invalid"], indirect=True)
+@pytest.mark.parametrize("resource", ["instance", "demand-history"])
+def test_invalid_simulator_timestamp_is_rejected(api_client, resource) -> None:
+    client, _ = api_client
+    response = client.get(f"/api/v1/simulator/{resource}")
+
+    assert response.status_code == 502
+    assert response.json()["detail"]["code"] == "INVALID_SIMULATOR_RESPONSE"
+
+
+@pytest.mark.parametrize("payload", [{"tick": -1}, {"tick": 3, "sim_time": "invalid"}])
+def test_invalid_sse_payload_becomes_protocol_error_event(payload) -> None:
     upstream = httpx.Response(
         200,
         headers={"content-type": "text/event-stream"},
-        content=b'event: simulation.tick\ndata: {"tick": -1}\n\n',
+        content=f"event: simulation.tick\ndata: {json.dumps(payload)}\n\n".encode(),
     )
 
     async def collect() -> bytes:

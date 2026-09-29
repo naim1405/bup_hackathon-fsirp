@@ -1,60 +1,62 @@
 # Work plan and implementation status
 
-**Purpose:** one concise source of truth for teammates and agents about what is implemented, what is deliberately not done, and the next work to pick up.
+**Purpose:** a shared source of truth for teammates and agents about what is implemented, what remains deliberately out of scope, and the next work to pick up.
 
 ## Current repository state
 
-The following deployment/backend/frontend milestones are committed on `main`:
+`main` contains the initial backend/frontend scaffolds, simulator read proxy, containerization, deployment automation, and the latest timestamp compatibility fixes. The `feature/frontend-backend-api` branch adds frontend API endpoints and the operator overview; PR #2 is open to merge those changes into `main`.
 
 | Commit | Work delivered |
 | --- | --- |
-| `58ca98b` — Initialize FastAPI backend scaffold | Base FastAPI app, root info, backend health endpoints, CORS defaults, requirements, run instructions, and starter tests. |
-| `3fc3df4` — Add validated read-only simulator integration | Async simulator HTTP client, Pydantic response models, simulator REST read routes, SSE proxy/event validation, upstream error mapping, stale header forwarding, and mock-based tests. |
-| `efe9cf1` — Configure Next.js frontend with shadcn UI | Next.js App Router/TypeScript/Tailwind v4 scaffold, shadcn/ui Nova/Radix setup and components, providers, same-origin FastAPI rewrite, starter page, and frontend tooling. |
-| `7af9252` — Dockerize frontend and backend services | Multi-stage frontend/backend Dockerfiles, root Compose stack including the simulator, health checks, and guides for all-in-one or VPS + Vercel deployment. |
+| `58ca98b` — Initialize FastAPI backend scaffold | FastAPI app, backend health, CORS, requirements, run instructions, starter tests. |
+| `3fc3df4` — Add validated read-only simulator integration | Async HTTPX client, Pydantic simulator response models, REST reads, SSE proxy/event validation, upstream error handling, stale marker forwarding, and mock tests. |
+| `efe9cf1` — Configure Next.js frontend with shadcn UI | Next.js/TypeScript/Tailwind foundation, shadcn/ui, providers, same-origin backend rewrite, and frontend tooling. |
+| `7af9252` — Dockerize frontend and backend services | App Dockerfiles, root Compose stack with simulator, health checks, and deployment guides. |
+| `aa60936` — Add automatic VPS backend deployment | Backend CI and SSH-based VPS deployment workflow; Vercel native Git integration remains the frontend deploy path. |
+| `7cf5c3e`, `30aaa3d` | Backend timestamp compatibility, tests, and related repository/deployment documentation updates. |
+| `a528383` — Add frontend-facing backend API endpoints | Best-effort dashboard snapshot, explicit allocation read/create/cancel APIs, write feature gate, request/response validation, and API contract docs. On the feature branch. |
+| `d8c5849` — Build operator network overview dashboard | Responsive overview UI wired to the backend snapshot with inventory, depot, activity, arrivals, demand, and delivery views. On the feature branch. |
 
-The frontend-facing API is committed and pushed on `feature/frontend-backend-api` (`a528383`). The operator overview UI described below is in the current working tree and has not yet been committed.
-
-### Implemented in the current working tree
+### Implemented on `feature/frontend-backend-api`
 
 #### Backend
 
-- FastAPI runs on port **8001**; service liveness: `/api/v1/health`; interactive OpenAPI docs: `/docs`.
-- Validated simulator read routes remain under `/api/v1/simulator`, including health, instance, regions, depots/list/detail, stations/list/detail, routes, supply arrivals, events, allocations, demand history, and metrics. `/api/v1/simulator/stream` proxies the validated SSE stream.
-- `GET /api/v1/dashboard/snapshot` fetches dashboard resources through FastAPI, returns usable partial state with per-resource freshness/errors, and compares simulator ticks before/after collection. It is explicitly best-effort, not transactional or cached.
-- `GET /api/v1/allocations`, `POST /api/v1/allocations`, and `POST /api/v1/allocations/{id}/cancel` provide frontend-facing allocation state and explicit simulator commands. Writes are disabled unless `SIMULATOR_WRITES_ENABLED=true`; no recommendation logic is involved.
-- Allocation request bodies are validated; simulator responses are validated and successful upstream status codes are preserved. A retry must retain the same body `idempotency_key`.
-- There is no operator authentication/authorization yet. Keep writes disabled on public deployments until access control is provided.
-- Simulator-owned state/history is not copied into an application database.
-- Backend tests: **14 pass** using a mocked simulator API. They cover partial snapshots, freshness, validation, disabled writes, create/cancel forwarding, and existing proxy/SSE behavior. This is mock-based; no live organizer simulator test has run.
+- FastAPI runs on port **8001**; liveness is `/api/v1/health`; interactive docs are `/docs`.
+- Validated simulator reads remain under `/api/v1/simulator` for health, instance, regions, depots/list/detail, stations/list/detail, routes, supply arrivals, events, allocations, demand history, and metrics. `/api/v1/simulator/stream` proxies validated SSE events.
+- Simulator timestamps accept timezone-less and timezone-aware values for instance, demand-history, and SSE tick-event data; absent timezone information is not silently replaced with one.
+- `GET /api/v1/dashboard/snapshot` fetches resources through FastAPI, returns usable partial data with per-resource freshness/errors, and compares simulator ticks before/after collection. It is best-effort, not transactional or cached.
+- `GET /api/v1/allocations`, `POST /api/v1/allocations`, and `POST /api/v1/allocations/{id}/cancel` provide allocation reads and explicit commands. Writes are disabled unless `SIMULATOR_WRITES_ENABLED=true`; there is no recommendation logic.
+- Allocation bodies and simulator responses are validated; successful upstream statuses are preserved. Clients must reuse the same body `idempotency_key` for retries.
+- There is no operator authentication/authorization. Keep writes disabled on public deployments until access control is provided.
+- Simulator state/history is not copied into an application database.
+- Backend tests: **23 pass** using the mocked simulator API, including partial snapshots, freshness, timestamp handling, validation, and gated action forwarding. Live simulator integration has not been verified from this environment.
 
 #### Frontend
 
-- Next.js 16 App Router, React 19, TypeScript, Tailwind CSS v4, React Compiler.
-- shadcn/ui configured with the Nova preset, Radix primitives, CSS variables, theme support, Lucide, and common UI primitives.
-- TanStack Query provider/devtools, React Hook Form, Zod, Recharts, date-fns, Sonner, ESLint, TypeScript, and Prettier/Tailwind sorting are set up.
-- Same-origin rewrite: `/api/backend/*` → FastAPI `/api/*`; default target is server-only `http://127.0.0.1:8001`.
-- The operator overview now reads `/api/backend/v1/dashboard/snapshot` via TanStack Query and presents service level, unmet demand, station inventory cards, depot stock/routes, activity, arrivals, demand trends, and recent deliveries. Station cards open a detail sheet; stale/partial/unavailable data is described in operator-friendly language without exposing simulator IDs or raw error codes.
-- The overview refreshes at a modest interval (15 seconds while running, 30 seconds otherwise) and can be manually refreshed. SSE notifications, multi-page network views, recommendations, and action controls remain future work.
-- The API contract is documented in [frontend-backend-api.md](frontend-backend-api.md). Verified after UI changes: `npm run lint`, `npm run typecheck`, `npm run format:check`, `npm run build`; the frontend proxy returned HTTP 200. The organizer simulator was not running for live-data validation.
+- Next.js 16 App Router, React 19, TypeScript, Tailwind CSS v4, and React Compiler.
+- shadcn/ui with Nova/Radix primitives, CSS-variable theming, Lucide icons, and common UI components; TanStack Query, Recharts, and other form/utility dependencies are configured.
+- Same-origin rewrite: browser `/api/backend/*` → FastAPI `/api/*`; default server-only target is `http://127.0.0.1:8001`.
+- Operator overview reads `/api/backend/v1/dashboard/snapshot` via TanStack Query. It presents service level, unmet demand, station inventory cards, depot stock/routes, activity, supply arrivals, demand trends, and recent deliveries. Selecting a station opens its details. Stale, partial, and unavailable data use operator-friendly language, without raw simulator IDs or error codes.
+- Refreshes every 15 seconds while the simulator is running and every 30 seconds otherwise; also has a manual refresh control. Frontend SSE handling, dedicated multi-page network views, recommendations, and action controls remain future work.
+- Verified: `npm run lint`, `npm run typecheck`, `npm run format:check`, `npm run build`; frontend-to-backend proxy smoke test returned HTTP 200. The simulator was not running during the smoke test, so live-data rendering used its honest unavailable/partial states rather than sample values.
 
 #### Containers / deployment
 
-- `backend/Dockerfile`: Python 3.12 slim, non-root FastAPI image, liveness health check.
-- `frontend/Dockerfile`: multi-stage Node 20 Alpine image with Next standalone output, non-root runtime, HTTP health check.
-- Root `docker-compose.yml`: simulator, backend, and frontend with health-gated dependencies. Default bind addresses keep simulator/admin and backend ports on loopback; `SIMULATOR_WRITES_ENABLED` defaults to false.
-- `deploy/README.md`: one-command full stack and split VPS backend + Vercel frontend instructions; `deploy/Caddyfile.example` and Compose env sample included.
-- Verified previously: Compose YAML parses; Next standalone build and proxy smoke test succeeded; regular Vercel-mode `npm run build` succeeded.
-- Not verified: actual Docker image/Compose build against a Docker daemon. Docker CLI/daemon was unavailable in the authoring environment; run the documented Docker-host verification before relying on it at judging.
+- Python 3.12 slim, non-root backend image; multi-stage Node 20 Alpine frontend image using Next standalone output.
+- Root Compose runs simulator/backend/frontend with health-gated dependencies. Simulator/admin and backend host ports default to loopback. `SIMULATOR_WRITES_ENABLED` defaults to false.
+- `deploy/README.md` documents all-in-one Compose, VPS + Vercel, and automatic VPS backend deployment; Caddy and Compose environment examples are included.
+- Main-branch deployment automation validates Compose, shell syntax, backend tests, and backend image build, then deploys over verified SSH. Vercel native Git integration deploys the frontend independently.
+- Docker Compose configuration, deployment-script shell syntax, and backend image build were validated in the separate automation workstream. Full Compose startup and remote VPS/Vercel end-to-end behavior still require validation.
 
 ### Not implemented yet
 
-- Frontend SSE notification handling, dedicated multi-page station/depot/delivery views, recommendation review, and explicit action confirmation UI.
-- Live run against the organizer's simulator image. Current proxy/action behavior is tested with mocks; confirm request/response contracts against actual simulator OpenAPI/docs and the integration guide.
-- Demand forecasting, shortage detection, recommendation policy, recommendation persistence, or policy versioning.
-- Operator authentication/authorization; the write feature flag is not a security boundary.
+- Live run against the organizer simulator image. Confirm response/request contracts and smoke-test snapshot, read routes, allocation creation, and cancellation against the actual simulator.
+- Frontend SSE notifications/reconnect handling and dedicated station/depot/delivery pages.
+- Forecasting, shortage detection, recommendation policy/API/UI, recommendation persistence, or policy versioning.
+- Operator authentication/authorization and a capability signal for action availability; the write feature flag is not a security boundary.
+- Frontend allocation/cancellation controls and their explicit confirmation workflow.
 - Application database, recommendation audit history, or decision-history retention policy.
-- Docker-host validation, CI, metrics dashboards, load-test results, and final demo evidence.
+- Docker-host end-to-end validation, remote deployment verification, load-test results, full observability evidence, and final demo artifacts.
 
 ## Recommended work order and ownership
 
@@ -62,58 +64,58 @@ Owners are roles; assign actual names in the team. Keep deployment/observability
 
 ### P0 — Shared integration contract (backend/integration owner)
 
-1. Start the organizer-published simulator image next to FastAPI and smoke-test snapshot, reads, allocation creation, and cancellation against actual responses.
-2. Confirm every response/request model against live OpenAPI/docs and the integration guide. Resolve differences before generating frontend types.
-3. Test tick changes during snapshot collection, stale headers, partial simulator failure, and API error mapping.
-4. Add integration tests for simulator unavailable, request timeout, and stream reconnect behavior.
+1. Start the organizer simulator next to FastAPI and smoke-test snapshot, reads, allocation creation, and cancellation against actual responses.
+2. Confirm request/response models against live OpenAPI/docs and the integration guide.
+3. Test tick changes during snapshot collection, stale headers, partial failure, timestamp variants, and upstream error mapping.
+4. Test simulator unavailability, request timeouts, and stream reconnect behavior.
 
-**Done when:** team can start simulator + backend reproducibly, query every read endpoint, and see valid/stale/error behavior clearly.
+**Done when:** the team can start simulator + backend reproducibly, query every read endpoint, and see valid/stale/error behavior clearly.
 
 ### P1 — Recommendation engine (engine owner)
 
 1. Implement the pure forecast/risk/decision module described in [Recommendation Engine Design](recommendation-engine-design.md).
-2. Add cold-start profile priors, history-based demand estimate, ETA-aware projected stock, and explanation/confidence output.
-3. Implement feasibility filters for route, depot inventory, dispatch headroom, station capacity, existing inbound allocations, outages, and stale state.
-4. Build baseline-vs-policy deterministic replays and tune policy with service-level, unmet-demand, stockout, and failure measurements.
+2. Add cold-start profile priors, history-based demand estimates, ETA-aware projected stock, and explanation/confidence output.
+3. Implement feasibility filters for routes, depot inventory, dispatch headroom, station capacity, inbound allocations, outages, and stale state.
+4. Build deterministic baseline-vs-policy replays and evaluate service level, unmet demand, stockouts, and failures.
 
-**Done when:** unit cases and repeatable simulator replays show feasible, explainable recommendations that outperform or usefully complement a stated baseline.
+**Done when:** replay tests show feasible, explainable recommendations that outperform or usefully complement a stated baseline.
 
 ### P1 — Operator UI/data wiring (frontend owner)
 
-1. Extend the overview into dedicated station/depot/delivery pages as the operator workflows grow; keep all calls on same-origin `/api/backend/*`.
-2. Consume SSE notifications, refetch affected REST state, refresh all after reconnect, and coalesce frequent tick events into bounded refreshes.
-3. Add risk-ranked recommendations with reasons/ETA/confidence and an explicit review flow when the backend engine and response contract exist.
-4. Add keyboard, screen-reader, and mobile usability checks for the operational workflows.
+1. Extend the overview into focused station/depot/delivery views as workflows grow; keep calls on same-origin `/api/backend/*`.
+2. Consume SSE notifications, refetch affected REST state, fully refresh after reconnect, and coalesce frequent tick events.
+3. Add recommendation review only when the backend engine and response contract exist; do not implement recommendation decisions in the frontend.
+4. Add keyboard, screen-reader, and mobile usability checks.
 
-**Done when:** an operator can use the dashboard with live simulator data and distinguish healthy, stale, loading, and unavailable states.
+**Done when:** an operator can distinguish healthy, stale, loading, and unavailable data and navigate the core network workflows confidently.
 
 ### P1 — Safe operator actions (backend + frontend owners)
 
-1. Add authentication/access control before enabling writes in any publicly reachable deployment.
-2. Wire the frontend to `POST /api/backend/v1/allocations` only after explicit operator approval; validate/refresh feasibility before enabling the action.
-3. Use a stable request `idempotency_key`, handle 404/409/503/504, show submitted and subsequent statuses, and make duplicate clicks/retries safe.
-4. Keep cancellation explicit and respect simulator status/validation; do not expose admin simulator controls as normal fuel actions.
+1. Add authentication/access control before enabling writes on a publicly reachable deployment.
+2. Add a backend capability signal so the UI can accurately show whether actions are enabled.
+3. Wire create/cancel actions only behind explicit operator review; refresh state after submission.
+4. Use stable idempotency keys; handle 404/409/503/504 and make retries/duplicate clicks safe.
 
-**Done when:** an approved shipment is created once, shown with correct status, and all failure/conflict cases produce a useful operator message.
+**Done when:** an approved shipment is created once, its status is visible, and failure/conflict cases produce clear operator guidance.
 
 ### P2 — Resilience, observability, and load test (DevOps/reliability owner)
 
-1. Add bounded timeout/retry/backoff and degraded cached read behavior where justified; never submit an action from stale state.
-2. Instrument backend request count/latency/error, simulator reachability, stale-data detection, stream reconnects, recommendation latency/confidence, and allocation/fallback outcomes.
-3. Expose component health and a simple metrics/log view. Add fault-injection runbook.
-4. Load-test one meaningful application path and record workload, concurrency, p50/p95/p99 where available, error rate, and resource use.
-5. Validate `docker compose up --build` on a Docker host, then add CI for backend tests, frontend checks, and container builds.
+1. Add bounded timeout/retry/backoff and degraded behavior where justified; never act on stale state.
+2. Instrument backend latency/errors, simulator reachability, stale detection, stream reconnects, recommendation latency, and action outcomes.
+3. Add a fault-injection runbook and simple operational metrics/log view.
+4. Load-test a meaningful application path and record workload, latency percentiles, errors, and resource use.
+5. Validate the full Compose stack and remote deployment end to end.
 
-**Done when:** team can demonstrate a named failure, visible detection, safe fallback/degradation, recovery, and measured performance.
+**Done when:** the team can demonstrate a named failure, visible detection, safe degradation/recovery, and measured performance.
 
 ### P2 — Demo and judging evidence (demo owner, whole team)
 
-Use the repeatable sequence in [Demo and Validation Plan](demo-and-validation-plan.md). Save screenshots/logs/metric readings and annotate baseline vs policy. Keep all claims clearly labeled as simulator results.
+Use [Demo and Validation Plan](demo-and-validation-plan.md). Save screenshots/logs/metric readings and compare baseline versus policy. Label simulated outcomes clearly.
 
 ## Working agreement for coding agents
 
-- Read `docs/README.md`, the specific design doc, and local package instructions (`backend/README.md` or `frontend/README.md`) before editing.
+- Read `docs/README.md`, the relevant design doc, and local package instructions (`backend/README.md` or `frontend/README.md`) before editing.
 - Do not add simulator writes, strategy, or fabricated data unless the task explicitly requests them.
-- Keep domain recommendation logic isolated from HTTP/UI and add deterministic tests.
-- Confirm no secrets/config credentials enter Git. Use environment configuration for endpoints.
-- Update this status document when a milestone ships; distinguish mock tests from live-simulator validation.
+- Keep recommendation logic isolated from HTTP/UI and add deterministic tests.
+- Keep secrets/config credentials out of Git; use environment configuration.
+- Update this status document when milestones ship; distinguish mock tests from live-simulator validation.

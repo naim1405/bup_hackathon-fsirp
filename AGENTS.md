@@ -11,6 +11,10 @@ Before changing this project:
 7. Keep credentials out of source, docs, logs, and commits. Use environment variables for service URLs and secrets.
 8. Add deterministic tests for behavior changes and update `docs/work-plan-and-status.md` when a milestone ships.
 
+## Response formatting
+
+- Use GitHub-flavored Markdown, not LaTeX, in replies to the user. Write formulas and units in plain text; do not use LaTeX commands or math delimiters.
+
 ## Checks
 
 - Backend: `cd backend && python -m pytest`

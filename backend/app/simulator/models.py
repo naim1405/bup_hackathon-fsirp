@@ -9,10 +9,11 @@ state before it reaches the application.
 
 from __future__ import annotations
 
+from datetime import datetime
 from enum import Enum
 from typing import Annotated, Any, Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 NonEmptyString = Annotated[str, Field(min_length=1, strict=True)]
@@ -56,7 +57,7 @@ class SimulatorInstance(SimulatorModel):
     scenario_id: NonEmptyString
     scenario_version: NonEmptyString
     seed: int
-    sim_time: AwareDatetime
+    sim_time: datetime
     tick: NonNegativeInt
     tick_minutes: PositiveInt
     status: InstanceStatus
@@ -194,7 +195,7 @@ class DemandObservation(SimulatorModel):
     station_id: NonEmptyString
     fuel_type: FuelType
     tick: NonNegativeInt
-    sim_time: AwareDatetime
+    sim_time: datetime
     demand_liters: NonNegativeFloat
     served_liters: NonNegativeFloat
     unmet_liters: NonNegativeFloat
@@ -212,7 +213,7 @@ class SimulatorMetrics(SimulatorModel):
 # notifications do not get forwarded as if they were valid simulator state.
 class SimulationTickEvent(SimulatorModel):
     tick: NonNegativeInt
-    sim_time: AwareDatetime
+    sim_time: datetime
 
 
 class InventoryUpdatedEvent(SimulatorModel):

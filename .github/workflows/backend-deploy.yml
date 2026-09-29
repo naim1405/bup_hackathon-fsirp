@@ -1,0 +1,67 @@
+name: Backend CI and VPS deployment
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      - run: python -m pip install -r backend/requirements-dev.txt
+      - run: python -m pytest
+        working-directory: backend
+      - run: bash -n deploy/deploy-backend.sh
+      - run: docker compose config --quiet
+      - run: docker build -t fsirp-backend:ci backend
+
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+      RELEASE_ID: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure verified SSH connection
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$VPS_HOST" && test -n "$VPS_USER"
+          test -n "$VPS_SSH_KEY" && test -n "$VPS_KNOWN_HOSTS"
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+      - name: Upload exact checked-out release
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -czf release.tar.gz backend docker-compose.yml deploy/deploy-backend.sh
+          scp -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 release.tar.gz "$VPS_USER@$VPS_HOST:/opt/fsirp/releases/$RELEASE_ID.tar.gz"
+      - name: Deploy and smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$VPS_USER@$VPS_HOST" "mkdir -p /opt/fsirp/releases/$RELEASE_ID && tar -xzf /opt/fsirp/releases/$RELEASE_ID.tar.gz -C /opt/fsirp/releases/$RELEASE_ID && bash /opt/fsirp/releases/$RELEASE_ID/deploy/deploy-backend.sh"
