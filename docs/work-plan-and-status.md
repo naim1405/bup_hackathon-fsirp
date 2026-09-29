@@ -11,7 +11,8 @@ The `main` branch has these implementation milestones:
 | `58ca98b` — Initialize FastAPI backend scaffold           | Base FastAPI app, root info, backend health endpoints, CORS defaults, requirements, run instructions, and starter tests.                                                                     |
 | `3fc3df4` — Add validated read-only simulator integration | Async simulator HTTP client, Pydantic response models, public simulator REST read routes, SSE proxy/event validation, upstream error mapping, stale header forwarding, and mock-based tests. |
 | `efe9cf1` — Configure Next.js frontend with shadcn UI     | Next.js App Router/TypeScript/Tailwind v4 scaffold, shadcn/ui Nova/Radix setup and components, providers, same-origin FastAPI rewrite, starter page, and frontend tooling.                   |
-| `7af9252` — Dockerize frontend and backend services       | Multi-stage frontend/backend Dockerfiles, root Compose stack including the simulator, health checks, and guides for all-in-one or VPS + Vercel deployment.                                   |
+| `7af9252` — Dockerize frontend and backend services       | Multi-stage frontend/backend Dockerfiles, root Compose stack including the simulator, health checks, and guides for all-in-one or VPS + Vercel deployment.                                                                                                   |
+| `feature/intelligence-engine` — Add intelligence engine   | Trained demand forecaster (seasonal + EWMA + pooled online ridge, bootstrap-trained on simulator history), shared inventory projector, detection findings/alerts, constraint-aware greedy planner with what-if impact, operator approval + idempotent simulator submission with reconciliation, `/api/v1/intelligence/*` API, background per-tick loop, JSON training persistence, fake simulator dev double, and 53 deterministic tests (validated live end-to-end: train → detect → plan → approve → execute → delivered). |
 
 ### Implemented today
 
@@ -43,14 +44,23 @@ The `main` branch has these implementation milestones:
 - Verified: Compose YAML parses; Next standalone build and proxy smoke test succeeded; regular Vercel-mode `npm run build` succeeded.
 - Not verified: actual Docker image/Compose build against a Docker daemon. Docker CLI/daemon was unavailable in the authoring environment; run the documented Docker-host verification before relying on it at judging.
 
+#### Intelligence engine (feature/intelligence-engine)
+
+- Everything intelligence-related lives in `backend/app/intelligence/` (config, priors, forecaster, projection, inbound, detection, allocator, training, service, routes); no other backend package contains decision logic.
+- Training: bootstrap from `/v1/demand-history` (per station), online prequential updates per tick, periodic ridge re-solve; history + model persist as JSON under `INTELLIGENCE_HISTORY_DIR` keyed by run id; a simulator reset isolates the new run.
+- Prediction: per station/fuel point forecast with empirical p10/p90, shared deterministic inventory projection (receipt-before-use, outage service failures kept separate from physical shortage), risk tiers per cell/station.
+- Detection: observed stockouts, outages, route/depot states, demand spikes/drops (robust z), supply ETA slippage/shortfall/overdue, stale-data findings, plus predictive shortage findings with stable alert identities and operator acknowledgement.
+- Decision: greedy constrained allocator over depot stock (net of commitments + reserve), per-depot dispatch headroom, route max-shipment, and station tank headroom; independent whole-plan validation; baseline-vs-plan impact summary; explicit uncovered-need reasons.
+- Operator actions: plan approve/reject/execute endpoints; execution revalidates a fresh snapshot, submits with stable idempotency keys, reconciles ambiguous outcomes via `GET /v1/allocations`, and reports `PARTIALLY_APPLIED`/`APPLIED`/`REJECTED` honestly. `INTELLIGENCE_EXECUTION_ENABLED` gates all writes.
+- Verified against a deterministic in-process fake simulator (11 E2E service tests + 4 HTTP route tests) and live: fake simulator + backend running together, shortage injected, plan generated, approved, submitted (11×201), and allocations ARRIVED at stations. Backend suite: **63 passed**.
+
 ### Not implemented yet
 
-- Live run against the organizer's simulator image. Current proxy behavior is tested with mocks; the simulator must be started locally at port 8000 for real state calls.
+- Live run against the organizer's simulator image. Proxy and engine behavior is tested with a deterministic fake simulator; the real simulator image must be started locally at port 8000 for production state.
 - A consistent dashboard/snapshot aggregation endpoint.
-- Demand forecasting, shortage detection, recommendation persistence, or an allocation policy.
 - Frontend REST/SSE data hooks, dashboard, alerts, and recommendation review UI.
-- Operator approval, allocation submission (`POST /v1/allocations`), or cancellation workflow.
-- Application database, recommendation audit history, or policy versioning.
+- Recommendation persistence in an application database (plans/history currently live in memory plus JSON training artifacts) and policy versioning beyond `policy-v1`.
+- Cancellation workflow for submitted allocations.
 - Docker-host validation of the Dockerfiles/Compose stack, CI, metrics dashboards, load-test results, or final demo evidence.
 
 ## Recommended work order and ownership

@@ -13,6 +13,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.simulator.client import SimulatorClient
 from app.simulator.config import SIMULATOR_BASE_URL, SIMULATOR_TIMEOUT_SECONDS
 from app.simulator.routes import router as simulator_router
+from app.intelligence.config import POLICY
+from app.intelligence.routes import router as intelligence_router
+from app.intelligence.service import IntelligenceEngine
 
 
 def _cors_origins() -> list[str]:
@@ -33,7 +36,13 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         follow_redirects=False,
     ) as simulator_http:
         application.state.simulator_client = SimulatorClient(simulator_http)
-        yield
+        intelligence = IntelligenceEngine(simulator_http, POLICY)
+        application.state.intelligence = intelligence
+        await intelligence.start_loop()
+        try:
+            yield
+        finally:
+            await intelligence.stop_loop()
 
 
 app = FastAPI(
@@ -58,6 +67,7 @@ app.add_middleware(
 )
 
 app.include_router(simulator_router)
+app.include_router(intelligence_router)
 
 
 @app.get("/", tags=["meta"], summary="API information")
@@ -70,6 +80,7 @@ def read_root() -> dict[str, str]:
         "docs": "/docs",
         "health": "/api/v1/health",
         "simulator_api": "/api/v1/simulator",
+        "intelligence_api": "/api/v1/intelligence",
     }
 
 

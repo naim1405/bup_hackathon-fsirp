@@ -15,3 +15,6 @@ venv/
 .DS_Store
 .idea/
 .vscode/
+
+# Intelligence engine local training/history artifacts
+backend/var/
