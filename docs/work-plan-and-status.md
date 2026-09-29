@@ -13,7 +13,7 @@ The following deployment/backend/frontend milestones are committed on `main`:
 | `efe9cf1` — Configure Next.js frontend with shadcn UI | Next.js App Router/TypeScript/Tailwind v4 scaffold, shadcn/ui Nova/Radix setup and components, providers, same-origin FastAPI rewrite, starter page, and frontend tooling. |
 | `7af9252` — Dockerize frontend and backend services | Multi-stage frontend/backend Dockerfiles, root Compose stack including the simulator, health checks, and guides for all-in-one or VPS + Vercel deployment. |
 
-The frontend-facing API implementation below is in the **current working tree** and has not yet been committed.
+The frontend-facing API is committed and pushed on `feature/frontend-backend-api` (`a528383`). The operator overview UI described below is in the current working tree and has not yet been committed.
 
 ### Implemented in the current working tree
 
@@ -34,8 +34,9 @@ The frontend-facing API implementation below is in the **current working tree** 
 - shadcn/ui configured with the Nova preset, Radix primitives, CSS variables, theme support, Lucide, and common UI primitives.
 - TanStack Query provider/devtools, React Hook Form, Zod, Recharts, date-fns, Sonner, ESLint, TypeScript, and Prettier/Tailwind sorting are set up.
 - Same-origin rewrite: `/api/backend/*` → FastAPI `/api/*`; default target is server-only `http://127.0.0.1:8001`.
-- No inventory/dashboard, REST/SSE hooks, alerts, recommendation review, or operator action UI has been implemented. The API contract is documented in [frontend-backend-api.md](frontend-backend-api.md).
-- Previously verified: `npm run lint`, `npm run typecheck`, `npm run format:check`, `npm run build`; frontend and backend health proxy smoke tests returned HTTP 200. Re-run frontend checks if the frontend contract/wiring is changed.
+- The operator overview now reads `/api/backend/v1/dashboard/snapshot` via TanStack Query and presents service level, unmet demand, station inventory cards, depot stock/routes, activity, arrivals, demand trends, and recent deliveries. Station cards open a detail sheet; stale/partial/unavailable data is described in operator-friendly language without exposing simulator IDs or raw error codes.
+- The overview refreshes at a modest interval (15 seconds while running, 30 seconds otherwise) and can be manually refreshed. SSE notifications, multi-page network views, recommendations, and action controls remain future work.
+- The API contract is documented in [frontend-backend-api.md](frontend-backend-api.md). Verified after UI changes: `npm run lint`, `npm run typecheck`, `npm run format:check`, `npm run build`; the frontend proxy returned HTTP 200. The organizer simulator was not running for live-data validation.
 
 #### Containers / deployment
 
@@ -48,7 +49,7 @@ The frontend-facing API implementation below is in the **current working tree** 
 
 ### Not implemented yet
 
-- Frontend REST/SSE data hooks, dashboard, alerts, recommendation review, and explicit action confirmation UI.
+- Frontend SSE notification handling, dedicated multi-page station/depot/delivery views, recommendation review, and explicit action confirmation UI.
 - Live run against the organizer's simulator image. Current proxy/action behavior is tested with mocks; confirm request/response contracts against actual simulator OpenAPI/docs and the integration guide.
 - Demand forecasting, shortage detection, recommendation policy, recommendation persistence, or policy versioning.
 - Operator authentication/authorization; the write feature flag is not a security boundary.
@@ -79,10 +80,10 @@ Owners are roles; assign actual names in the team. Keep deployment/observability
 
 ### P1 — Operator UI/data wiring (frontend owner)
 
-1. Add typed client calls through same-origin `/api/backend/v1/dashboard/snapshot` and `/api/backend/v1/simulator/*`; do not expose a browser `localhost` URL.
-2. Add initial loading/error/stale/partial states and render inventory, status, demand, supply/allocations, events, and metrics.
-3. Consume SSE notifications, refetch affected REST state, refresh all after reconnect, and coalesce redundant rendering/recommendation work.
-4. Add risk-ranked recommendations with reasons/ETA/confidence and an explicit review flow when the engine exists.
+1. Extend the overview into dedicated station/depot/delivery pages as the operator workflows grow; keep all calls on same-origin `/api/backend/*`.
+2. Consume SSE notifications, refetch affected REST state, refresh all after reconnect, and coalesce frequent tick events into bounded refreshes.
+3. Add risk-ranked recommendations with reasons/ETA/confidence and an explicit review flow when the backend engine and response contract exist.
+4. Add keyboard, screen-reader, and mobile usability checks for the operational workflows.
 
 **Done when:** an operator can use the dashboard with live simulator data and distinguish healthy, stale, loading, and unavailable states.
 

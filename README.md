@@ -3,7 +3,7 @@
 Monorepo for the BUP CSE Fest hackathon project:
 
 - `backend/` — FastAPI frontend API for validated simulator state, a dashboard snapshot, SSE proxying, and explicitly gated operator allocation commands.
-- `frontend/` — Next.js App Router workspace configured with TypeScript, Tailwind CSS v4, and shadcn/ui. The data-driven operator dashboard will be built on this foundation.
+- `frontend/` — Next.js App Router operator console with a live network overview for stations, inventory, supply arrivals, demand, and deliveries.
 
 ## Run the frontend
 

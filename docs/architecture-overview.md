@@ -18,7 +18,7 @@ flowchart LR
 
 Current implementations:
 
-- **Frontend (`frontend/`)**: Next.js 16 App Router, React 19, TypeScript, Tailwind CSS v4, shadcn/ui, theme/toast/tooltip wrappers, TanStack Query provider, and a scaffold landing page. It does not yet render simulator state, recommendations, or operator actions.
+- **Frontend (`frontend/`)**: Next.js 16 App Router, React 19, TypeScript, Tailwind CSS v4, shadcn/ui, TanStack Query, and a responsive operator overview that renders live station inventory, depot stock, demand history, supply arrivals, events, and allocation status. Recommendations and operator action controls are not yet implemented.
 - **Frontend-to-backend proxy**: Next rewrites `/api/backend/:path*` to the server-only `BACKEND_API_URL` plus `/api/:path*`. Example: browser `GET /api/backend/v1/dashboard/snapshot` → FastAPI `GET /api/v1/dashboard/snapshot`. The browser never calls the simulator or a `localhost` URL directly.
 - **Backend (`backend/`)**: FastAPI with a reusable async HTTPX client configured by `SIMULATOR_BASE_URL` and `SIMULATOR_TIMEOUT_SECONDS`. It validates known simulator data with Pydantic models, maps upstream errors, and proxies documented SSE events. `/api/v1/dashboard/snapshot` fetches data concurrently and reports per-resource availability/freshness; `/api/v1/allocations` and its cancellation route forward explicit commands only when `SIMULATOR_WRITES_ENABLED=true`.
 - **Simulator**: supplied organizer image; expected local port is 8000. It is not part of this repository and must not be modified to solve the challenge.
