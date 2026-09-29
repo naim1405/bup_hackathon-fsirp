@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog } from "radix-ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -13,6 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Predictions } from "./predictions";
 import { ActionExplanation } from "./action-explanation";
 import { PlanReview } from "./plan-review";
+import { PastSituations } from "./past-situations";
+import { savePlanToHistory } from "@/lib/past-decisions-store";
 import { Panel, human } from "./shared";
 
 function useIntelligence<T>(endpoint: string) {
@@ -48,6 +50,19 @@ export function IntelligencePage() {
     refetchInterval: 15000,
     staleTime: 0,
   });
+  // Automatically capture incoming real-time plans into history so past situations are never lost
+  useEffect(() => {
+    if (recommendations.data) {
+      savePlanToHistory(recommendations.data);
+    }
+  }, [recommendations.data]);
+
+  useEffect(() => {
+    if (reviewed.data) {
+      savePlanToHistory(reviewed.data);
+    }
+  }, [reviewed.data]);
+
   const mutation = useMutation({
     mutationFn: ({ path, body }: { path: string; body: object }) =>
       intelligenceRequest<unknown>(path, body),
@@ -56,6 +71,7 @@ export function IntelligencePage() {
       if (plan?.plan_id && plan.status && Array.isArray(plan.recommendations)) {
         setReviewedId(plan.plan_id);
         client.setQueryData(["intelligence", "plan", plan.plan_id], plan);
+        savePlanToHistory(plan as Plan);
       }
       if (variables.path === "/run") setReviewedId(null);
       setFeedback(
@@ -332,6 +348,22 @@ export function IntelligencePage() {
           </Dialog.Portal>
         )}
       </Dialog.Root>
+      {/* Past Occurrences & Historical Decision Actions */}
+      <PastSituations
+        activePlanId={plan?.plan_id}
+        alerts={alerts.isError ? [] : alerts.data}
+        disabled={!canAct}
+        executionEnabled={!!status.data?.execution_enabled && !status.isError}
+        onSelectPlan={(selectedPlan) => {
+          setReviewedId(selectedPlan.plan_id);
+          client.setQueryData(["intelligence", "plan", selectedPlan.plan_id], selectedPlan);
+          setFeedback(`Loaded past situation plan ${selectedPlan.plan_id} (Tick ${selectedPlan.as_of_tick}). You can approve, reject, or execute this situation below.`);
+        }}
+        onAction={(action, targetPlan) => {
+          setConfirmation({ action, plan: targetPlan });
+        }}
+      />
+
       <Panel title="Risk alerts">
         {!identity && (
           <p className="mb-3 text-sm text-amber-800">
