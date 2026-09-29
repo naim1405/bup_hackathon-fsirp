@@ -1,40 +1,38 @@
 # BUP Fuel Supply Intelligence & Resilience Platform
 
-Monorepo for the BUP CSE Fest hackathon project. The backend is a FastAPI service with validated, read-only integration endpoints for the fuel simulator. The frontend and decision engine will be added in later work.
+Monorepo for the BUP CSE Fest hackathon project:
 
-## Backend quick start
+- `backend/` — FastAPI read-only integration with the BUP Fuel Supply Simulator, including response validation and an SSE proxy.
+- `frontend/` — Next.js App Router workspace configured with TypeScript, Tailwind CSS v4, and shadcn/ui. The data-driven operator dashboard will be built on this foundation.
+
+## Run the frontend
+
+Requirements: Node.js 20.9 or newer.
+
+```bash
+cd frontend
+npm ci
+cp .env.example .env.local
+npm run dev -- --hostname 0.0.0.0 --port 3000
+```
+
+The frontend uses a same-origin rewrite: browser requests to `/api/backend/*` are proxied server-side to FastAPI. The default target is `http://127.0.0.1:8001`; set `BACKEND_API_URL` in `frontend/.env.local` if the backend runs elsewhere. Do not call localhost directly from browser code.
+
+## Run the backend
 
 Requirements: Python 3.11 or newer.
 
 ```bash
 cd backend
 python -m venv .venv
-
-# macOS / Linux
 source .venv/bin/activate
-
-# Windows PowerShell: .venv\\Scripts\\Activate.ps1
-python -m pip install --upgrade pip
 python -m pip install -r requirements-dev.txt
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
 ```
 
-The backend listens on port `8001` so the simulator can use its documented default port `8000`. Set `SIMULATOR_BASE_URL` if the simulator is exposed elsewhere (default: `http://localhost:8000`).
+The simulator uses its documented default port `8000`, so the backend listens on `8001`. Set `SIMULATOR_BASE_URL` if the simulator is exposed elsewhere. Backend docs are at <http://localhost:8001/docs>; health is at <http://localhost:8001/api/v1/health>.
 
-The server provides:
+## Checks
 
-- API information: <http://localhost:8001/>
-- Health check: <http://localhost:8001/api/v1/health>
-- Swagger UI: <http://localhost:8001/docs>
-- ReDoc: <http://localhost:8001/redoc>
-- Simulator read endpoints: `/api/v1/simulator/*`
-
-CORS defaults to `http://localhost:3000` and `http://localhost:5173`. Set `CORS_ORIGINS` to a comma-separated list to override these origins.
-
-## Run backend tests
-
-From the `backend` directory with the virtual environment activated:
-
-```bash
-python -m pytest
-```
+- Frontend: `cd frontend && npm run lint && npm run typecheck && npm run build`
+- Backend: `cd backend && python -m pytest`
