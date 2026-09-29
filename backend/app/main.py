@@ -20,6 +20,7 @@ from app.simulator.client import SimulatorClient
 from app.simulator.config import SIMULATOR_BASE_URL, SIMULATOR_TIMEOUT_SECONDS
 from app.simulator.routes import router as simulator_router
 from app.telemetry import ObservabilityMiddleware
+from app.websocket import WebSocketUpdateHub, router as websocket_router
 
 
 def _cors_origins() -> list[str]:
@@ -40,7 +41,12 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         follow_redirects=False,
     ) as simulator_http:
         application.state.simulator_client = SimulatorClient(simulator_http)
-        intelligence = IntelligenceEngine(simulator_http, POLICY)
+        hub: WebSocketUpdateHub = application.state.websocket_update_hub
+        intelligence = IntelligenceEngine(
+            simulator_http,
+            POLICY,
+            publish_update=hub.publish_update,
+        )
         application.state.intelligence = intelligence
         await intelligence.start_loop()
         try:
@@ -62,6 +68,7 @@ app = FastAPI(
     openapi_url="/openapi.json",
     lifespan=lifespan,
 )
+app.state.websocket_update_hub = WebSocketUpdateHub()
 
 app.add_middleware(
     CORSMiddleware,
@@ -76,6 +83,7 @@ app.include_router(dashboard_router)
 app.include_router(operations_router)
 app.include_router(observability_router)
 app.include_router(intelligence_router)
+app.include_router(websocket_router)
 app.add_middleware(ObservabilityMiddleware)
 
 

@@ -328,12 +328,22 @@ def make_policy(tmp_path, **overrides: object) -> PolicyConfig:
     return PolicyConfig(**defaults)  # type: ignore[arg-type]
 
 
-def make_engine(world: FakeSimulator, policy: PolicyConfig) -> IntelligenceEngine:
+def make_engine(
+    world: FakeSimulator,
+    policy: PolicyConfig,
+    *,
+    publish_update: Any | None = None,
+) -> IntelligenceEngine:
     transport = httpx.MockTransport(world.handler)
     http = httpx.AsyncClient(transport=transport, base_url="http://simulator.test")
     # Unit tests use an explicitly write-enabled fake simulator; production
     # defaults to the shared global write gate, which is disabled.
-    return IntelligenceEngine(http, policy, simulator_writes_enabled=True)
+    return IntelligenceEngine(
+        http,
+        policy,
+        simulator_writes_enabled=True,
+        publish_update=publish_update,
+    )
 
 
 def run(engine: IntelligenceEngine, **kwargs: Any) -> Any:
@@ -341,6 +351,24 @@ def run(engine: IntelligenceEngine, **kwargs: Any) -> Any:
 
 
 class TestFullPipeline:
+    def test_fresh_tick_publishes_one_refresh_notification(self, tmp_path) -> None:
+        world = FakeSimulator()
+        notifications: list[str] = []
+
+        async def publish_update() -> None:
+            notifications.append("update")
+
+        engine = make_engine(
+            world,
+            make_policy(tmp_path),
+            publish_update=publish_update,
+        )
+
+        run(engine, force=True)
+        run(engine)  # the same simulator tick is deduplicated
+
+        assert notifications == ["update"]
+
     def test_bootstrap_train_detect_plan(self, tmp_path) -> None:
         world = FakeSimulator()
         engine = make_engine(world, make_policy(tmp_path))

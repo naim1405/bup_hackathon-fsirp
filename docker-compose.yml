@@ -34,6 +34,7 @@ services:
       SIMULATOR_TIMEOUT_SECONDS: ${SIMULATOR_TIMEOUT_SECONDS:-8}
       SIMULATOR_WRITES_ENABLED: ${SIMULATOR_WRITES_ENABLED:-false}
       INTELLIGENCE_EXECUTION_ENABLED: ${INTELLIGENCE_EXECUTION_ENABLED:-false}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:5173}
       OBSERVABILITY_TOKEN: ${OBSERVABILITY_TOKEN:-}
     logging:
       driver: json-file
@@ -68,6 +69,7 @@ services:
       args:
         # Next.js stores rewrites in its build output, so this must be set at build time.
         BACKEND_API_URL: ${BACKEND_API_URL:-http://backend:8001}
+        NEXT_PUBLIC_BACKEND_WS_URL: ${NEXT_PUBLIC_BACKEND_WS_URL:-ws://localhost:8001/api/v1/ws}
     environment:
       NODE_ENV: production
       BACKEND_API_URL: ${BACKEND_API_URL:-http://backend:8001}

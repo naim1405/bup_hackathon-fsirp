@@ -45,7 +45,9 @@ Compose defaults are suitable for a local demo. Set shell variables or copy `dep
 - `SIMULATOR_TIMEOUT_SECONDS`
 - `SIMULATOR_WRITES_ENABLED` (default `false`; backend-wide write gate)
 - `INTELLIGENCE_EXECUTION_ENABLED` (default `false`; second intelligence-only write gate)
-- `BACKEND_API_URL` (frontend **build-time** rewrite target; local Compose default is `http://backend:8001`)
+- `BACKEND_API_URL` (frontend **build-time** HTTP rewrite target; local Compose default is `http://backend:8001`)
+- `NEXT_PUBLIC_BACKEND_WS_URL` (frontend **build-time** direct WebSocket URL; use a public `ws://`/`wss://` FastAPI origin for browser clients)
+- `CORS_ORIGINS` (comma-separated exact browser origins allowed to open the WebSocket; defaults to localhost development origins)
 
 Do not commit `.env` files. The example contains no secrets.
 
@@ -72,9 +74,10 @@ This is the recommended split deployment when you want Vercel hosting for the UI
 
 1. Import the same GitHub repository and set **Root Directory** to `frontend`.
 2. Use `npm ci` for install and `npm run build` for build (Vercel's Next.js preset usually detects these automatically).
-3. Set the server-side environment variable `BACKEND_API_URL` to `https://hackathon.bebsapati.com`. Configure it for Production and Preview separately as appropriate.
-4. Redeploy after changing this value. The Next.js rewrite destination is generated from `next.config.ts` at build time; changing only a runtime variable is not enough for an already-built deployment.
-5. From the browser, keep calling relative paths such as `/api/backend/v1/simulator/instance`. Vercel's Next.js layer performs the server-to-server rewrite to the VPS API; do not put the VPS URL in a `NEXT_PUBLIC_*` variable or fetch it directly from browser code.
+3. Set `BACKEND_API_URL` to `https://hackathon.bebsapati.com` for the server-side HTTP rewrite.
+4. Set `NEXT_PUBLIC_BACKEND_WS_URL` to `wss://hackathon.bebsapati.com/api/v1/ws`. WebSocket upgrades are not handled by the Next.js HTTP rewrite, so the browser opens this socket directly to FastAPI. Set the VPS `CORS_ORIGINS` to the exact Vercel production origin (and any Preview origin you intend to allow).
+5. Redeploy after changing either value; both are consumed at build time.
+6. Keep REST browser requests on relative paths such as `/api/backend/v1/simulator/instance`; Vercel performs the HTTP rewrite to the VPS. Only the WebSocket URL is intentionally public in frontend configuration.
 
 The backend exposes simulator reads, explicit allocation create/cancel routes, and intelligence plan execution. All simulator writes are disabled by default: direct allocation commands require `SIMULATOR_WRITES_ENABLED=true`, while intelligence execution also requires `INTELLIGENCE_EXECUTION_ENABLED=true` and explicit plan approval. There is no application authentication/authorization. Keep both flags false on any publicly reachable VPS until action routes are protected by authenticated/authorized operator access; a public Next.js rewrite or these feature flags alone are not authorization. Contracts are documented in [`../docs/frontend-backend-api.md`](../docs/frontend-backend-api.md) and [`../backend/INTELLIGENCE_API.md`](../backend/INTELLIGENCE_API.md). Apply suitable access controls and rate limits to the public API origin.
 

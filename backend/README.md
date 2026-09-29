@@ -21,6 +21,7 @@ The simulator defaults to `http://localhost:8000`; configure `SIMULATOR_BASE_URL
 - Frontend allocation API: `http://localhost:8001/api/v1/allocations`
 - Granular simulator reads: `http://localhost:8001/api/v1/simulator`
 - Intelligence API: `http://localhost:8001/api/v1/intelligence`
+- Browser update WebSocket: `ws://localhost:8001/api/v1/ws` (sends refresh signals; clients refetch validated REST state)
 
 The dashboard snapshot fetches simulator resources concurrently and returns valid partial state with per-resource availability/freshness statuses. Granular reads cover health, instance, regions, depots, stations, routes, supply arrivals, events, allocations, demand history, and metrics. The SSE stream is available at `/api/v1/simulator/stream`; documented event payloads are validated before forwarding. Simulator state/history are not copied into an application database or a local history store.
 

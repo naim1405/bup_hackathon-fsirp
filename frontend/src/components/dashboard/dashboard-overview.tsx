@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
   AlertTriangle,
@@ -17,6 +17,7 @@ import {
   RefreshCw,
   Truck,
   Warehouse,
+  Wifi,
   WifiOff,
 } from "lucide-react";
 import {
@@ -57,6 +58,7 @@ import {
   type Station,
   type SupplyArrival,
 } from "@/lib/dashboard-api";
+import { useRealtimeUpdates } from "@/lib/realtime";
 
 const fuelOrder: FuelType[] = ["DIESEL", "PETROL", "OCTANE"];
 const fuelLabels: Record<FuelType, string> = {
@@ -1275,6 +1277,8 @@ export function DashboardOverview() {
   const [selectedStation, setSelectedStation] = useState<Station | null>(null);
   const [activeSection, setActiveSection] = useState("overview");
   const [now, setNow] = useState(0);
+  const queryClient = useQueryClient();
+  const realtimeStatus = useRealtimeUpdates(queryClient);
   const query = useQuery({
     queryKey: ["dashboard-snapshot"],
     queryFn: fetchDashboardSnapshot,
@@ -1390,6 +1394,32 @@ export function DashboardOverview() {
                     : qualityTone === "degraded"
                       ? "Data may be delayed"
                       : "Connecting"}
+                </span>
+              </div>
+              <div
+                className="flex items-center gap-1.5 text-[10px] text-slate-500 md:text-xs"
+                role="status"
+                aria-live="polite"
+              >
+                {realtimeStatus === "connected" ? (
+                  <Wifi
+                    className="size-3.5 text-emerald-600"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <WifiOff
+                    className="size-3.5 text-slate-400"
+                    aria-hidden="true"
+                  />
+                )}
+                <span>
+                  {realtimeStatus === "connected"
+                    ? "Live updates"
+                    : realtimeStatus === "polling"
+                      ? "Periodic refresh"
+                      : realtimeStatus === "connecting"
+                        ? "Connecting"
+                        : "Reconnecting"}
                 </span>
               </div>
               <span className="hidden text-xs text-slate-400 md:inline">
