@@ -371,6 +371,38 @@ export function IntelligencePage() {
                 </Button>
               </div>
               <p className="mt-3 text-sm text-slate-600">{a.finding.detail}</p>
+              <div className="mt-3 grid gap-2 rounded-lg bg-slate-50 p-3 text-xs text-slate-700 sm:grid-cols-2">
+                <p>
+                  <b>Where:</b>{" "}
+                  {a.finding.entity_ids?.length
+                    ? a.finding.entity_ids.map((id) => human(id)).join(", ")
+                    : "Network-wide"}
+                </p>
+                <p><b>Fuel:</b> {a.finding.fuel_type ?? "All / not specific"}</p>
+                <p><b>Type:</b> {a.finding.type ? human(a.finding.type).toLowerCase() : "—"}</p>
+                <p>
+                  <b>When:</b>{" "}
+                  {a.finding.first_seen_tick != null
+                    ? a.finding.first_seen_tick === a.finding.last_seen_tick
+                      ? `Tick ${a.finding.first_seen_tick}`
+                      : `Ticks ${a.finding.first_seen_tick}–${a.finding.last_seen_tick}`
+                    : "—"}
+                </p>
+                {!!a.finding.evidence?.length && (
+                  <div className="sm:col-span-2">
+                    <b>Evidence:</b>
+                    <ul className="mt-1 list-disc pl-5">
+                      {a.finding.evidence.map((e, i) => (
+                        <li key={i}>
+                          {human(e.name)}: {String(e.value)}{e.unit ? ` ${e.unit}` : ""}
+                          {e.baseline != null ? ` (baseline ${String(e.baseline)})` : ""}
+                          {e.threshold != null ? ` (threshold ${String(e.threshold)})` : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
               {a.acknowledged_by && (
                 <p className="mt-2 text-xs text-slate-500">
                   Acknowledged by {a.acknowledged_by}

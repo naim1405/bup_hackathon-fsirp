@@ -45,6 +45,18 @@ export interface AlertRecord {
     severity: string;
     confidence: string;
     category: string;
+    type?: string;
+    entity_ids?: string[];
+    fuel_type?: string | null;
+    first_seen_tick?: number;
+    last_seen_tick?: number;
+    evidence?: {
+      name: string;
+      value: unknown;
+      unit?: string | null;
+      baseline?: unknown;
+      threshold?: unknown;
+    }[];
   };
 }
 export interface Plan {
